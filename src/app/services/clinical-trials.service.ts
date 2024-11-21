@@ -81,4 +81,32 @@ export class ClinicalTrialsService {
     );
     this.trials.next(updatedTrials);
   }
+
+  addFavorite(trial: ClinicalTrial) {
+    const currentFavorites = this.favorites.value;
+    if (currentFavorites.length < 10) {
+      const updatedFavorites = [...currentFavorites, { ...trial, isFavorite: true }];
+      this.favorites.next(updatedFavorites);
+
+      // Update the trial in the trials list
+      const currentTrials = this.trials.value;
+      const updatedTrials = currentTrials.map(t =>
+        t.nctId === trial.nctId ? { ...t, isFavorite: true } : t
+      );
+      this.trials.next(updatedTrials);
+    }
+  }
+
+  removeFavorite(trial: ClinicalTrial) {
+    const currentFavorites = this.favorites.value;
+    const updatedFavorites = currentFavorites.filter(fav => fav.nctId !== trial.nctId);
+    this.favorites.next(updatedFavorites);
+
+    // Update the trial in the trials list
+    const currentTrials = this.trials.value;
+    const updatedTrials = currentTrials.map(t =>
+      t.nctId === trial.nctId ? { ...t, isFavorite: false } : t
+    );
+    this.trials.next(updatedTrials);
+  }
 }

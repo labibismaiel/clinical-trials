@@ -97,3 +97,70 @@ body {
 .mat-button-toggle-checked::before {
   display: none !important;
 }
+
+// Snackbar styles
+.mat-mdc-snack-bar-container {
+  &.success-snackbar, &.error-snackbar {
+    .mdc-snackbar__surface {
+      .mat-mdc-snack-bar-actions {
+        .mdc-button {
+          color: rgba(255, 255, 255, 1) !important;
+        }
+      }
+    }
+    
+    .mat-mdc-button {
+      color: rgba(255, 255, 255, 1) !important;
+      font-weight: bold;
+      min-width: 24px;
+      padding: 0 8px;
+      height: 24px;
+      line-height: 24px;
+    }
+  }
+
+  &.success-snackbar {
+    --mdc-snackbar-container-color: #43a047;
+    --mat-mdc-snack-bar-button-color: rgba(255, 255, 255, 1);
+    --mdc-snackbar-supporting-text-color: #fff;
+  }
+
+  &.error-snackbar {
+    --mdc-snackbar-container-color: #d32f2f;
+    --mat-mdc-snack-bar-button-color: rgba(255, 255, 255, 1);
+    --mdc-snackbar-supporting-text-color: #fff;
+  }
+
+  &.custom-snackbar {
+    .mdc-snackbar__surface {
+      padding-right: 8px !important;
+    }
+
+    .mat-mdc-snack-bar-actions {
+      padding: 0 8px;
+      margin-right: -8px;
+    }
+
+    .mdc-snackbar__actions {
+      min-width: auto !important;
+      padding: 0 !important;
+    }
+
+    .mat-mdc-button-persistent-ripple {
+      display: none;
+    }
+
+    .mat-mdc-snack-bar-action {
+      &::after {
+        font-family: 'Material Icons';
+        content: 'close';
+        font-size: 18px;
+        color: rgba(0, 0, 0, 0.87);
+      }
+
+      .mdc-button__label {
+        display: none;
+      }
+    }
+  }
+}
