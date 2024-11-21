@@ -1,0 +1,25 @@
+<div class="favorites-list">
+  <mat-card *ngFor="let trial of favorites" class="favorite-card">
+    <mat-card-header>
+      <mat-card-title>{{ trial.briefTitle }}</mat-card-title>
+      <mat-card-subtitle>NCT ID: {{ trial.nctId }}</mat-card-subtitle>
+    </mat-card-header>
+    <mat-card-content>
+      <p><strong>Status:</strong> {{ trial.overallStatus }}</p>
+      <p *ngIf="trial.phase"><strong>Phase:</strong> {{ trial.phase }}</p>
+      <p *ngIf="trial.studyType"><strong>Study Type:</strong> {{ trial.studyType }}</p>
+      <p *ngIf="trial.condition"><strong>Condition:</strong> {{ trial.condition }}</p>
+      <p *ngIf="trial.lastUpdatePosted"><strong>Last Updated:</strong> {{ trial.lastUpdatePosted | date }}</p>
+    </mat-card-content>
+    <mat-card-actions>
+      <button mat-button (click)="removeFavorite(trial)">
+        <mat-icon>favorite</mat-icon>
+        Remove from Favorites
+      </button>
+    </mat-card-actions>
+  </mat-card>
+
+  <div *ngIf="favorites.length === 0" class="no-favorites">
+    <p>No favorite trials yet. Add some from the main list!</p>
+  </div>
+</div>

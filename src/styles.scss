@@ -1,0 +1,99 @@
+/* You can add global styles to this file, and also import other style files */
+@use '@angular/material' as mat;
+
+html, body {
+  height: 100%;
+  margin: 0;
+  font-family: Roboto, "Helvetica Neue", sans-serif;
+  background-color: #f5f5f5;
+}
+
+body {
+  margin: 0;
+  font-family: Roboto, "Helvetica Neue", sans-serif;
+}
+
+// Material Icons font
+.material-icons {
+  font-family: 'Material Icons';
+  font-weight: normal;
+  font-style: normal;
+  font-size: 24px;
+  display: inline-block;
+  line-height: 1;
+  text-transform: none;
+  letter-spacing: normal;
+  word-wrap: normal;
+  white-space: nowrap;
+  direction: ltr;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  -moz-osx-font-smoothing: grayscale;
+  font-feature-settings: 'liga';
+}
+
+// Custom scrollbar
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f1f1;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #888;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #666;
+}
+
+// Override Material Button Toggle styles
+.mat-button-toggle-group {
+  &.mat-button-toggle-group-appearance-standard {
+    border: 1px solid rgba(0, 0, 0, 0.12);
+    
+    .mat-button-toggle + .mat-button-toggle {
+      border-left: 1px solid rgba(0, 0, 0, 0.12);
+    }
+  }
+
+  .mat-button-toggle-checked {
+    background-color: transparent !important;
+
+    .mat-button-toggle-label-content {
+      .mat-icon {
+        color: #2196f3 !important;
+      }
+    }
+  }
+
+  .mat-button-toggle {
+    &::after {
+      display: none !important;
+    }
+
+    .mat-button-toggle-focus-overlay {
+      display: none;
+    }
+
+    // Remove the check icon
+    .mat-button-toggle-button::before {
+      display: none !important;
+    }
+  }
+}
+
+// Additional check icon removal
+.mat-button-toggle-checked .mat-button-toggle-button::before {
+  display: none !important;
+}
+
+// Remove any other potential check marks
+.mat-button-toggle-checked::after,
+.mat-button-toggle-checked::before {
+  display: none !important;
+}
