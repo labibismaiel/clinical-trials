@@ -55,7 +55,7 @@ body {
 .mat-button-toggle-group {
   &.mat-button-toggle-group-appearance-standard {
     border: 1px solid rgba(0, 0, 0, 0.12);
-    
+
     .mat-button-toggle + .mat-button-toggle {
       border-left: 1px solid rgba(0, 0, 0, 0.12);
     }
@@ -108,7 +108,7 @@ body {
         }
       }
     }
-    
+
     .mat-mdc-button {
       color: rgba(255, 255, 255, 1) !important;
       font-weight: bold;

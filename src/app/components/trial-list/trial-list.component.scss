@@ -3,15 +3,14 @@
 }
 
 .controls {
-  background: white;
-  padding: 16px;
-  border-radius: 8px;
-  margin-bottom: 24px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
   display: flex;
+  justify-content: space-between;
   align-items: center;
-  gap: 16px;
-  flex-wrap: wrap;
+  margin-bottom: 20px;
+  padding: 0 20px;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
 
   mat-button-toggle-group {
     margin-left: auto;
@@ -54,20 +53,30 @@
 // Card View Styles
 .trial-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
-  gap: 24px;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 20px;
+  padding: 20px;
   margin-bottom: 24px;
+  transition: all 0.3s ease-out;
 }
 
 .trial-card {
-  height: 100%;
+  display: flex;
+  flex-direction: column;
+  height: auto;
+  overflow: hidden;
   border-radius: 8px;
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
-  background: white;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, all 0.3s ease-out;
+  transform-origin: center;
+  will-change: transform, opacity;
   
   &:hover {
     transform: translateY(-2px);
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  }
+
+  &.ng-leave {
+    animation: fadeOut 0.3s ease-out;
   }
 
   mat-card-header {
@@ -95,17 +104,26 @@
 .trial-list {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 16px;
+  padding: 20px;
 }
 
 .trial-list-item {
   background: white;
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  display: flex;
+  overflow: hidden;
   border-radius: 8px;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, all 0.3s ease-out;
+  transform-origin: center;
+  will-change: transform, opacity;
   
   &:hover {
     transform: translateY(-1px);
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  }
+
+  &.ng-leave {
+    animation: fadeOut 0.3s ease-out;
   }
 }
 
@@ -207,6 +225,11 @@
   0% { transform: scale(1); }
   50% { transform: scale(1.2); }
   100% { transform: scale(1); }
+}
+
+@keyframes fadeOut {
+  0% { opacity: 1; }
+  100% { opacity: 0; }
 }
 
 // Responsive adjustments

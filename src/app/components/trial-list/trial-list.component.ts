@@ -32,8 +32,8 @@ import { Subscription } from 'rxjs';
 export class TrialListComponent implements OnInit, OnDestroy {
   trials: ClinicalTrial[] = [];
   autoUpdate = false;
-  maxFavoritesReached = false;
   viewMode: 'card' | 'list' = 'card';
+  maxFavoritesReached = false;
   private subscriptions: Subscription[] = [];
 
   constructor(
@@ -42,23 +42,18 @@ export class TrialListComponent implements OnInit, OnDestroy {
   ) {}
 
   ngOnInit() {
-    // Subscribe to trials updates
     this.subscriptions.push(
       this.clinicalTrialsService.getTrials().subscribe(trials => {
         this.trials = trials;
       }),
-      // Subscribe to favorites updates to check max limit
       this.clinicalTrialsService.getFavorites().subscribe(favorites => {
         this.maxFavoritesReached = favorites.length >= 10;
       })
     );
-
-    // Initial fetch
     this.clinicalTrialsService.fetchRandomTrials();
   }
 
   ngOnDestroy() {
-    // Clean up subscriptions and stop timer
     this.subscriptions.forEach(sub => sub.unsubscribe());
     this.clinicalTrialsService.toggleTimer(false);
   }
@@ -73,12 +68,12 @@ export class TrialListComponent implements OnInit, OnDestroy {
       this.clinicalTrialsService.removeFavorite(trial);
       this.showNotification('Trial removed from favorites');
     } else {
-      if (!this.maxFavoritesReached) {
-        this.clinicalTrialsService.addFavorite(trial);
-        this.showNotification('Trial added to favorites');
-      } else {
+      if (this.maxFavoritesReached) {
         this.showNotification('Maximum favorites limit reached (10)', 'error');
+        return;
       }
+      this.clinicalTrialsService.addFavorite(trial);
+      this.showNotification('Trial added to favorites');
     }
   }
 
