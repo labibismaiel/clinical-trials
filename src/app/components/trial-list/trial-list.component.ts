@@ -50,7 +50,6 @@ export class TrialListComponent implements OnInit, OnDestroy {
         this.maxFavoritesReached = favorites.length >= 10;
       })
     );
-    this.clinicalTrialsService.fetchRandomTrials();
   }
 
   ngOnDestroy() {
@@ -59,22 +58,20 @@ export class TrialListComponent implements OnInit, OnDestroy {
   }
 
   toggleAutoUpdate() {
-    this.autoUpdate = !this.autoUpdate;
+    // No need to set this.autoUpdate as it's handled by ngModel
     this.clinicalTrialsService.toggleTimer(this.autoUpdate);
   }
 
   toggleFavorite(trial: ClinicalTrial) {
-    if (trial.isFavorite) {
-      this.clinicalTrialsService.removeFavorite(trial);
-      this.showNotification('Trial removed from favorites');
-    } else {
-      if (this.maxFavoritesReached) {
-        this.showNotification('Maximum favorites limit reached (10)', 'error');
-        return;
-      }
-      this.clinicalTrialsService.addFavorite(trial);
-      this.showNotification('Trial added to favorites');
+    if (!trial.isFavorite && this.maxFavoritesReached) {
+      this.showNotification('Maximum favorites limit reached (10)', 'error');
+      return;
     }
+
+    this.clinicalTrialsService.toggleFavorite(trial);
+    this.showNotification(
+      trial.isFavorite ? 'Trial removed from favorites' : 'Trial added to favorites'
+    );
   }
 
   private showNotification(message: string, type: 'success' | 'error' = 'success') {

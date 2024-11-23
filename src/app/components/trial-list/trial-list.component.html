@@ -2,7 +2,7 @@
   <div class="controls">
     <mat-slide-toggle
       [(ngModel)]="autoUpdate"
-      (change)="toggleAutoUpdate()">
+      (ngModelChange)="toggleAutoUpdate()">
       Auto-update (5 seconds)
     </mat-slide-toggle>
 
