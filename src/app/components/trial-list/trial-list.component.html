@@ -1,30 +1,42 @@
 <div class="container">
   <div class="controls">
-    <mat-slide-toggle
-      [(ngModel)]="autoUpdate"
-      (ngModelChange)="toggleAutoUpdate()">
-      Auto-update (5 seconds)
-    </mat-slide-toggle>
-
-    <mat-button-toggle-group [(ngModel)]="viewMode" aria-label="View mode" appearance="standard">
-      <mat-button-toggle value="card" aria-label="Card view">
+    <div class="auto-fetch-toggle">
+      <mat-slide-toggle
+        [(ngModel)]="autoFetch"
+        (change)="toggleAutoFetch()"
+        color="primary">
+        Auto-Fetch
+      </mat-slide-toggle>
+    </div>
+    <mat-button-toggle-group color="primary" [(ngModel)]="viewMode" aria-label="View Mode">
+      <mat-button-toggle value="card">
         <mat-icon>grid_view</mat-icon>
       </mat-button-toggle>
-      <mat-button-toggle value="list" aria-label="List view">
+      <mat-button-toggle value="list">
         <mat-icon>view_list</mat-icon>
       </mat-button-toggle>
     </mat-button-toggle-group>
   </div>
 
+  <!-- Loading State -->
+  <div class="loading" *ngIf="loading">
+    <mat-spinner diameter="40"></mat-spinner>
+  </div>
+
+  <!-- Error State -->
+  <div class="error" *ngIf="error">
+    <p>Error loading trials. Please try again later.</p>
+  </div>
+
   <!-- Card View -->
-  <div class="trials-grid" *ngIf="viewMode === 'card'">
+  <div class="trials-grid" *ngIf="!loading && !error && viewMode === 'card'">
     <mat-card *ngFor="let trial of trials" class="trial-card">
       <mat-card-header>
-        <mat-card-title>{{ trial.briefTitle }}</mat-card-title>
-        <mat-card-subtitle>ID: {{ trial.nctId }}</mat-card-subtitle>
+        <mat-card-title (click)="viewTrialDetails(trial)" class="clickable">
+          {{ trial.briefTitle }}
+        </mat-card-title>
       </mat-card-header>
-
-      <mat-card-content (click)="viewTrialDetails(trial)">
+      <mat-card-content>
         <div class="trial-details">
           <div class="detail-row">
             <span class="label">Status:</span>
@@ -34,68 +46,53 @@
             <span class="label">Phase:</span>
             <span class="value">{{ trial.phase }}</span>
           </div>
-          <div class="detail-row" *ngIf="trial.studyType">
-            <span class="label">Type:</span>
-            <span class="value">{{ trial.studyType }}</span>
-          </div>
           <div class="detail-row" *ngIf="trial.condition">
             <span class="label">Condition:</span>
             <span class="value">{{ trial.condition }}</span>
           </div>
-          <div class="detail-row" *ngIf="trial.lastUpdatePosted">
-            <span class="label">Updated:</span>
-            <span class="value">{{ trial.lastUpdatePosted | date:'mediumDate' }}</span>
-          </div>
         </div>
       </mat-card-content>
-
       <mat-card-actions>
-        <button
-          mat-icon-button
-          [color]="trial.isFavorite ? 'primary' : ''"
-          [disabled]="!trial.isFavorite && maxFavoritesReached"
-          (click)="toggleFavorite(trial)"
-          [attr.aria-label]="trial.isFavorite ? 'Remove from favorites' : 'Add to favorites'"
-          class="favorite-btn"
-          [class.favorited]="trial.isFavorite">
-          <mat-icon fontSet="material-icons">{{ trial.isFavorite ? 'favorite' : 'favorite_border' }}</mat-icon>
+        <button mat-icon-button 
+                (click)="toggleFavorite(trial)" 
+                [disabled]="!trial.isFavorite && maxFavoritesReached"
+                [attr.aria-label]="trial.isFavorite ? 'Remove from favorites' : 'Add to favorites'">
+          <mat-icon [color]="trial.isFavorite ? 'warn' : ''">
+            {{ trial.isFavorite ? 'favorite' : 'favorite_border' }}
+          </mat-icon>
         </button>
       </mat-card-actions>
     </mat-card>
   </div>
 
   <!-- List View -->
-  <div class="trials-list" *ngIf="viewMode === 'list'">
+  <div class="trials-list" *ngIf="!loading && !error && viewMode === 'list'">
     <mat-card *ngFor="let trial of trials" class="trial-list-item">
-      <div class="trial-content" (click)="viewTrialDetails(trial)">
+      <div class="trial-content">
         <div class="trial-header">
-          <h3>{{ trial.briefTitle }}</h3>
-          <p class="list-id">ID: {{ trial.nctId }}</p>
+          <h3 (click)="viewTrialDetails(trial)" class="clickable">{{ trial.briefTitle }}</h3>
         </div>
-
         <div class="trial-details">
-          <span class="list-tag" *ngIf="trial.phase">{{ trial.phase }}</span>
-          <span class="list-tag status">{{ trial.overallStatus }}</span>
-          <span class="list-tag" *ngIf="trial.studyType">{{ trial.studyType }}</span>
+          <span class="status">{{ trial.overallStatus }}</span>
+          <span *ngIf="trial.phase">{{ trial.phase }}</span>
+          <span *ngIf="trial.condition">{{ trial.condition }}</span>
         </div>
       </div>
       <div class="trial-actions">
-        <button
-          mat-icon-button
-          [color]="trial.isFavorite ? 'primary' : ''"
-          [disabled]="!trial.isFavorite && maxFavoritesReached"
-          (click)="toggleFavorite(trial)"
-          [attr.aria-label]="trial.isFavorite ? 'Remove from favorites' : 'Add to favorites'"
-          class="favorite-btn"
-          [class.favorited]="trial.isFavorite">
-          <mat-icon fontSet="material-icons">{{ trial.isFavorite ? 'favorite' : 'favorite_border' }}</mat-icon>
+        <button mat-icon-button 
+                (click)="toggleFavorite(trial)"
+                [disabled]="!trial.isFavorite && maxFavoritesReached"
+                [attr.aria-label]="trial.isFavorite ? 'Remove from favorites' : 'Add to favorites'">
+          <mat-icon [color]="trial.isFavorite ? 'warn' : ''">
+            {{ trial.isFavorite ? 'favorite' : 'favorite_border' }}
+          </mat-icon>
         </button>
       </div>
     </mat-card>
   </div>
 
-  <div *ngIf="trials.length === 0" class="no-trials">
-    <mat-spinner diameter="40"></mat-spinner>
-    <p>Loading clinical trials...</p>
+  <!-- No Trials State -->
+  <div class="no-trials" *ngIf="!loading && !error && trials.length === 0">
+    <p>No clinical trials found.</p>
   </div>
 </div>

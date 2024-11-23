@@ -8,4 +8,8 @@ export interface ClinicalTrial {
   condition?: string;
   lastUpdatePosted?: string;
   isFavorite?: boolean;
+  description?: string;
+  enrollment?: number;
+  interventions?: string[];
+  locations?: string[];
 }

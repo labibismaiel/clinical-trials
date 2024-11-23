@@ -1,16 +1,16 @@
 import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { FormsModule } from '@angular/forms';
 import { MatCardModule } from '@angular/material/card';
-import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
-import { MatSlideToggleModule } from '@angular/material/slide-toggle';
-import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { MatButtonModule } from '@angular/material/button';
+import { FormsModule } from '@angular/forms';
 import { MatButtonToggleModule } from '@angular/material/button-toggle';
 import { MatSnackBarModule, MatSnackBar } from '@angular/material/snack-bar';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { ClinicalTrialsService } from '../../services/clinical-trials.service';
 import { ClinicalTrial } from '../../models/clinical-trial.model';
-import { Subscription } from 'rxjs';
+import { Subscription, interval } from 'rxjs';
 import { Router } from '@angular/router';
 
 @Component({
@@ -18,23 +18,26 @@ import { Router } from '@angular/router';
   standalone: true,
   imports: [
     CommonModule,
-    FormsModule,
     MatCardModule,
-    MatButtonModule,
     MatIconModule,
-    MatSlideToggleModule,
-    MatProgressSpinnerModule,
+    MatButtonModule,
+    FormsModule,
     MatButtonToggleModule,
-    MatSnackBarModule
+    MatSnackBarModule,
+    MatProgressSpinnerModule,
+    MatSlideToggleModule
   ],
   templateUrl: './trial-list.component.html',
   styleUrls: ['./trial-list.component.scss']
 })
 export class TrialListComponent implements OnInit, OnDestroy {
   trials: ClinicalTrial[] = [];
-  autoUpdate = false;
   viewMode: 'card' | 'list' = 'card';
   maxFavoritesReached = false;
+  loading = false;
+  error = false;
+  autoFetch = false;
+  private autoFetchSubscription?: Subscription;
   private subscriptions: Subscription[] = [];
 
   constructor(
@@ -44,10 +47,8 @@ export class TrialListComponent implements OnInit, OnDestroy {
   ) {}
 
   ngOnInit() {
+    this.fetchTrials();
     this.subscriptions.push(
-      this.clinicalTrialsService.getTrials().subscribe(trials => {
-        this.trials = trials;
-      }),
       this.clinicalTrialsService.getFavorites().subscribe(favorites => {
         this.maxFavoritesReached = favorites.length >= 10;
       })
@@ -56,12 +57,61 @@ export class TrialListComponent implements OnInit, OnDestroy {
 
   ngOnDestroy() {
     this.subscriptions.forEach(sub => sub.unsubscribe());
-    this.clinicalTrialsService.toggleTimer(false);
+    this.stopAutoFetch();
   }
 
-  toggleAutoUpdate() {
-    // No need to set this.autoUpdate as it's handled by ngModel
-    this.clinicalTrialsService.toggleTimer(this.autoUpdate);
+  fetchTrials() {
+    this.loading = true;
+    this.error = false;
+    
+    this.subscriptions.push(
+      this.clinicalTrialsService.getTrials().subscribe({
+        next: (trials) => {
+          this.trials = trials;
+          this.loading = false;
+        },
+        error: (error) => {
+          console.error('Error fetching trials:', error);
+          this.error = true;
+          this.loading = false;
+          this.snackBar.open('Error fetching trials. Please try again later.', 'Close', {
+            duration: 5000,
+          });
+        }
+      })
+    );
+  }
+
+  toggleAutoFetch() {
+    if (this.autoFetch) {
+      this.stopAutoFetch();
+    } else {
+      this.startAutoFetch();
+    }
+    this.autoFetch = !this.autoFetch;
+  }
+
+  private startAutoFetch() {
+    this.autoFetchSubscription = interval(30000).subscribe(() => {
+      this.fetchTrials();
+    });
+    this.snackBar.open('Auto-fetch started. Trials will update every 30 seconds.', 'Close', {
+      duration: 3000,
+    });
+  }
+
+  private stopAutoFetch() {
+    if (this.autoFetchSubscription) {
+      this.autoFetchSubscription.unsubscribe();
+      this.autoFetchSubscription = undefined;
+      this.snackBar.open('Auto-fetch stopped.', 'Close', {
+        duration: 3000,
+      });
+    }
+  }
+
+  viewTrialDetails(trial: ClinicalTrial) {
+    this.router.navigate(['/trial', trial.nctId]);
   }
 
   toggleFavorite(trial: ClinicalTrial) {
@@ -70,14 +120,21 @@ export class TrialListComponent implements OnInit, OnDestroy {
       return;
     }
 
-    this.clinicalTrialsService.toggleFavorite(trial);
-    this.showNotification(
-      trial.isFavorite ? 'Trial removed from favorites' : 'Trial added to favorites'
-    );
-  }
-
-  viewTrialDetails(trial: ClinicalTrial) {
-    this.router.navigate(['/trial', trial.nctId]);
+    this.clinicalTrialsService.toggleFavorite(trial).subscribe({
+      next: (updatedTrial: ClinicalTrial) => {
+        const index = this.trials.findIndex(t => t.nctId === updatedTrial.nctId);
+        if (index !== -1) {
+          this.trials[index] = updatedTrial;
+        }
+        this.showNotification(
+          updatedTrial.isFavorite ? 'Trial added to favorites' : 'Trial removed from favorites'
+        );
+      },
+      error: (error: Error) => {
+        console.error('Error toggling favorite:', error);
+        this.showNotification('Error updating favorite status', 'error');
+      }
+    });
   }
 
   private showNotification(message: string, type: 'success' | 'error' = 'success') {
@@ -85,7 +142,7 @@ export class TrialListComponent implements OnInit, OnDestroy {
       duration: 3000,
       horizontalPosition: 'end',
       verticalPosition: 'bottom',
-      panelClass: [type === 'error' ? 'error-snackbar' : 'success-snackbar']
+      panelClass: type === 'error' ? ['error-snackbar'] : undefined
     });
   }
 }

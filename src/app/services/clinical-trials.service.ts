@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { BehaviorSubject, Observable, interval } from 'rxjs';
+import { BehaviorSubject, Observable, interval, of } from 'rxjs';
 import { map, take } from 'rxjs/operators';
 import { ClinicalTrial } from '../models/clinical-trial.model';
 
@@ -142,23 +142,21 @@ export class ClinicalTrialsService {
     }
   }
 
-  toggleFavorite(trial: ClinicalTrial) {
-    const currentFavorites = this.favorites.value;
-    const isFavorite = currentFavorites.some(fav => fav.nctId === trial.nctId);
-
-    if (isFavorite) {
-      const updatedFavorites = currentFavorites.filter(fav => fav.nctId !== trial.nctId);
+  toggleFavorite(trial: ClinicalTrial): Observable<ClinicalTrial> {
+    trial.isFavorite = !trial.isFavorite;
+    if (trial.isFavorite) {
+      this.favorites.next([...this.favorites.value, trial]);
+    } else {
+      const currentFavorites = this.favorites.value;
+      const updatedFavorites = currentFavorites.filter(t => t.nctId !== trial.nctId);
       this.favorites.next(updatedFavorites);
-    } else if (currentFavorites.length < 10) {
-      this.favorites.next([...currentFavorites, { ...trial, isFavorite: true }]);
     }
-
-    // Update the trial in the trials list
     const currentTrials = this.trials.value;
     const updatedTrials = currentTrials.map(t =>
-      t.nctId === trial.nctId ? { ...t, isFavorite: !isFavorite } : t
+      t.nctId === trial.nctId ? { ...t, isFavorite: !t.isFavorite } : t
     );
     this.trials.next(updatedTrials);
+    return of(trial);
   }
 
   private convertApiTrialToModel(study: any): ClinicalTrial {

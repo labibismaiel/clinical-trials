@@ -1,251 +1,213 @@
 .container {
-  padding: 20px;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 2rem 1rem;
 }
 
 .controls {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 20px;
-  padding: 0 20px;
-  background: white;
-  border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  margin-bottom: 2rem;
+  gap: 1rem;
 
-  mat-button-toggle-group {
-    margin-left: auto;
-    border-radius: 4px;
-    
+  .auto-fetch-toggle {
+    flex: 1;
+  }
+
+  ::ng-deep {
     .mat-button-toggle-checked {
-      background-color: transparent;
-      
+      background-color: var(--mat-toolbar-container-background-color) !important;
+
+      .mat-button-toggle-label-content,
+      .mat-button-toggle-button,
       .mat-icon {
-        color: #2196f3;
-      }
-    }
-
-    .mat-button-toggle-button {
-      &::after {
-        display: none !important;
-      }
-    }
-
-    .mat-button-toggle-appearance-standard {
-      background: transparent;
-    }
-
-    mat-button-toggle {
-      background: transparent;
-      border: none;
-
-      .mat-button-toggle-label-content {
-        line-height: 36px;
-      }
-
-      .mat-icon {
-        margin: 0;
-        transition: color 0.2s ease;
+        color: var(--mat-toolbar-container-text-color) !important;
       }
     }
   }
 }
 
-// Card View Styles
-.trial-grid {
+.trials-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-  gap: 20px;
-  padding: 20px;
-  margin-bottom: 24px;
-  transition: all 0.3s ease-out;
+  gap: 1.5rem;
+  margin-bottom: 2rem;
+}
+
+.trials-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin-bottom: 2rem;
+}
+
+.clickable {
+  cursor: pointer;
+  color: #3f51b5;
+  transition: color 0.2s ease;
+
+  &:hover {
+    color: #303f9f;
+    text-decoration: underline;
+  }
 }
 
 .trial-card {
+  height: 100%;
   display: flex;
   flex-direction: column;
-  height: auto;
-  overflow: hidden;
-  border-radius: 8px;
-  transition: transform 0.2s ease, box-shadow 0.2s ease, all 0.3s ease-out;
-  transform-origin: center;
-  will-change: transform, opacity;
-  
-  &:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-  }
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  cursor: pointer;
 
-  &.ng-leave {
-    animation: fadeOut 0.3s ease-out;
+  &:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.12);
   }
 
   mat-card-header {
-    padding: 16px 16px 0;
-    
-    mat-card-title {
-      font-size: 1.1rem;
-      font-weight: 500;
-      margin-bottom: 8px;
-      line-height: 1.4;
+    margin-bottom: 1rem;
+    padding: 1rem 1rem 0;
+
+    ::ng-deep .mat-mdc-card-header-text {
+      width: 100%;
     }
 
-    mat-card-subtitle {
-      color: rgba(0, 0, 0, 0.6);
-      font-size: 0.9rem;
+    mat-card-title {
+      font-size: 1.2rem;
+      line-height: 1.4;
+      color: #3f51b5;
+      margin: 0;
+      padding-bottom: 0.5rem;
+      position: relative;
+      transition: color 0.2s ease;
+      
+      &::after {
+        content: '';
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        width: 0;
+        height: 2px;
+        background-color: #3f51b5;
+        transition: width 0.2s ease;
+      }
+
+      &:hover {
+        color: #303f9f;
+        text-decoration: none;
+
+        &::after {
+          width: 100%;
+        }
+      }
     }
   }
 
   mat-card-content {
-    padding: 16px;
-  }
-}
+    flex: 1;
+    padding: 0 1rem;
 
-// List View Styles
-.trial-list {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-  padding: 20px;
+    .trial-details {
+      .detail-row {
+        display: flex;
+        margin-bottom: 0.75rem;
+        align-items: baseline;
+        gap: 0.5rem;
+
+        .label {
+          font-weight: 500;
+          color: rgba(0, 0, 0, 0.6);
+          min-width: 80px;
+        }
+
+        .value {
+          color: rgba(0, 0, 0, 0.87);
+        }
+      }
+    }
+  }
+
+  mat-card-actions {
+    display: flex;
+    justify-content: flex-end;
+    padding: 0.5rem;
+  }
 }
 
 .trial-list-item {
-  background: white;
-  display: flex;
-  overflow: hidden;
-  border-radius: 8px;
-  transition: transform 0.2s ease, box-shadow 0.2s ease, all 0.3s ease-out;
-  transform-origin: center;
-  will-change: transform, opacity;
-  
-  &:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  }
-
-  &.ng-leave {
-    animation: fadeOut 0.3s ease-out;
-  }
-}
-
-.list-content {
   display: flex;
   align-items: center;
-  padding: 16px;
-  gap: 24px;
-}
+  padding: 1rem;
 
-.list-main {
-  flex: 1;
-  min-width: 0;
-
-  h3 {
-    margin: 0 0 4px;
-    font-size: 1.1rem;
-    font-weight: 500;
-    color: rgba(0, 0, 0, 0.87);
-  }
-
-  .list-id {
-    margin: 0;
-    font-size: 0.9rem;
-    color: rgba(0, 0, 0, 0.6);
-  }
-}
-
-.list-details {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-  align-items: center;
-}
-
-.list-tag {
-  padding: 4px 8px;
-  border-radius: 4px;
-  background: rgba(0, 0, 0, 0.05);
-  font-size: 0.85rem;
-  color: rgba(0, 0, 0, 0.87);
-  white-space: nowrap;
-
-  &.status {
-    background: #e3f2fd;
-    color: #1976d2;
-  }
-}
-
-.list-actions {
-  display: flex;
-  align-items: center;
-}
-
-// Common Styles
-.trial-details {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.detail-row {
-  display: flex;
-  align-items: flex-start;
-  gap: 8px;
-  font-size: 0.9rem;
-  line-height: 1.4;
-
-  .label {
-    color: rgba(0, 0, 0, 0.6);
-    font-weight: 500;
-    min-width: 80px;
-  }
-
-  .value {
+  .trial-content {
     flex: 1;
+    cursor: pointer;
+    padding: 0.5rem;
+    margin-right: 1rem;
+
+    .trial-header {
+      h3 {
+        margin: 0 0 0.5rem 0;
+        font-size: 1.1rem;
+      }
+    }
+
+    .trial-details {
+      display: flex;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+
+      .status {
+        color: #3f51b5;
+      }
+    }
+  }
+
+  .trial-actions {
+    display: flex;
+    align-items: center;
   }
 }
 
-.favorite-btn {
-  &.favorited mat-icon {
-    color: #2196f3;
-    animation: heartBeat 0.3s ease-in-out;
-  }
-
-  mat-icon {
-    transition: color 0.2s ease;
-  }
+.no-trials {
+  text-align: center;
+  padding: 2rem;
+  color: rgba(0, 0, 0, 0.6);
 }
 
-.loading-spinner {
+// Loading state
+.loading {
   display: flex;
   justify-content: center;
   align-items: center;
-  padding: 40px;
+  min-height: 200px;
 }
 
-@keyframes heartBeat {
-  0% { transform: scale(1); }
-  50% { transform: scale(1.2); }
-  100% { transform: scale(1); }
-}
-
-@keyframes fadeOut {
-  0% { opacity: 1; }
-  100% { opacity: 0; }
+// Error state
+.error {
+  text-align: center;
+  color: #f44336;
+  padding: 2rem;
 }
 
 // Responsive adjustments
-@media (max-width: 768px) {
-  .list-content {
+@media (max-width: 600px) {
+  .trials-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .trial-list-item {
     flex-direction: column;
-    align-items: flex-start;
-    gap: 16px;
-  }
+    align-items: stretch;
 
-  .list-details {
-    width: 100%;
-  }
+    .trial-content {
+      margin-right: 0;
+      margin-bottom: 1rem;
+    }
 
-  .list-actions {
-    width: 100%;
-    justify-content: flex-end;
+    .trial-actions {
+      justify-content: flex-end;
+    }
   }
 }
