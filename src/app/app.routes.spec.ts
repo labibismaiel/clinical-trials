@@ -5,6 +5,7 @@ import { Location } from '@angular/common';
 import { routes } from './app.routes';
 import { TrialListComponent } from './components/trial-list/trial-list.component';
 import { FavoritesComponent } from './components/favorites/favorites.component';
+import { TrialDetailsComponent } from './components/trial-details/trial-details.component';
 
 describe('App Routing', () => {
   let router: Router;
@@ -32,6 +33,13 @@ describe('App Routing', () => {
     expect(location.path()).toBe('/favorites');
   }));
 
+  it('should navigate to trial details with ID', fakeAsync(() => {
+    const testId = 'NCT123';
+    router.navigate(['/trial', testId]);
+    tick();
+    expect(location.path()).toBe('/trial/' + testId);
+  }));
+
   it('should redirect unknown paths to trial list', fakeAsync(() => {
     router.navigate(['/unknown']);
     tick();
@@ -41,10 +49,12 @@ describe('App Routing', () => {
   it('should have correct component for each route', () => {
     const trialListRoute = routes.find(route => route.path === '');
     const favoritesRoute = routes.find(route => route.path === 'favorites');
+    const trialDetailsRoute = routes.find(route => route.path === 'trial/:id');
     const wildcardRoute = routes.find(route => route.path === '**');
 
     expect(trialListRoute?.component).toBe(TrialListComponent);
     expect(favoritesRoute?.component).toBe(FavoritesComponent);
+    expect(trialDetailsRoute?.component).toBe(TrialDetailsComponent);
     expect(wildcardRoute?.redirectTo).toBe('');
   });
 });

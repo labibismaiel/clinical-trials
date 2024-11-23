@@ -11,6 +11,7 @@ import { MatSnackBarModule, MatSnackBar } from '@angular/material/snack-bar';
 import { ClinicalTrialsService } from '../../services/clinical-trials.service';
 import { ClinicalTrial } from '../../models/clinical-trial.model';
 import { Subscription } from 'rxjs';
+import { Router } from '@angular/router';
 
 @Component({
   selector: 'app-trial-list',
@@ -38,7 +39,8 @@ export class TrialListComponent implements OnInit, OnDestroy {
 
   constructor(
     private clinicalTrialsService: ClinicalTrialsService,
-    private snackBar: MatSnackBar
+    private snackBar: MatSnackBar,
+    private router: Router
   ) {}
 
   ngOnInit() {
@@ -72,6 +74,10 @@ export class TrialListComponent implements OnInit, OnDestroy {
     this.showNotification(
       trial.isFavorite ? 'Trial removed from favorites' : 'Trial added to favorites'
     );
+  }
+
+  viewTrialDetails(trial: ClinicalTrial) {
+    this.router.navigate(['/trial', trial.nctId]);
   }
 
   private showNotification(message: string, type: 'success' | 'error' = 'success') {

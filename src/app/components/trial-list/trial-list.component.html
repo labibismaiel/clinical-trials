@@ -17,14 +17,14 @@
   </div>
 
   <!-- Card View -->
-  <div class="trial-grid" *ngIf="viewMode === 'card'">
+  <div class="trials-grid" *ngIf="viewMode === 'card'">
     <mat-card *ngFor="let trial of trials" class="trial-card">
       <mat-card-header>
         <mat-card-title>{{ trial.briefTitle }}</mat-card-title>
         <mat-card-subtitle>ID: {{ trial.nctId }}</mat-card-subtitle>
       </mat-card-header>
 
-      <mat-card-content>
+      <mat-card-content (click)="viewTrialDetails(trial)">
         <div class="trial-details">
           <div class="detail-row">
             <span class="label">Status:</span>
@@ -65,32 +65,31 @@
   </div>
 
   <!-- List View -->
-  <div class="trial-list" *ngIf="viewMode === 'list'">
+  <div class="trials-list" *ngIf="viewMode === 'list'">
     <mat-card *ngFor="let trial of trials" class="trial-list-item">
-      <div class="list-content">
-        <div class="list-main">
+      <div class="trial-content" (click)="viewTrialDetails(trial)">
+        <div class="trial-header">
           <h3>{{ trial.briefTitle }}</h3>
           <p class="list-id">ID: {{ trial.nctId }}</p>
         </div>
 
-        <div class="list-details">
+        <div class="trial-details">
           <span class="list-tag" *ngIf="trial.phase">{{ trial.phase }}</span>
           <span class="list-tag status">{{ trial.overallStatus }}</span>
           <span class="list-tag" *ngIf="trial.studyType">{{ trial.studyType }}</span>
         </div>
-
-        <div class="list-actions">
-          <button
-            mat-icon-button
-            [color]="trial.isFavorite ? 'primary' : ''"
-            [disabled]="!trial.isFavorite && maxFavoritesReached"
-            (click)="toggleFavorite(trial)"
-            [attr.aria-label]="trial.isFavorite ? 'Remove from favorites' : 'Add to favorites'"
-            class="favorite-btn"
-            [class.favorited]="trial.isFavorite">
-            <mat-icon fontSet="material-icons">{{ trial.isFavorite ? 'favorite' : 'favorite_border' }}</mat-icon>
-          </button>
-        </div>
+      </div>
+      <div class="trial-actions">
+        <button
+          mat-icon-button
+          [color]="trial.isFavorite ? 'primary' : ''"
+          [disabled]="!trial.isFavorite && maxFavoritesReached"
+          (click)="toggleFavorite(trial)"
+          [attr.aria-label]="trial.isFavorite ? 'Remove from favorites' : 'Add to favorites'"
+          class="favorite-btn"
+          [class.favorited]="trial.isFavorite">
+          <mat-icon fontSet="material-icons">{{ trial.isFavorite ? 'favorite' : 'favorite_border' }}</mat-icon>
+        </button>
       </div>
     </mat-card>
   </div>

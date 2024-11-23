@@ -160,4 +160,30 @@ export class ClinicalTrialsService {
     );
     this.trials.next(updatedTrials);
   }
+
+  private convertApiTrialToModel(study: any): ClinicalTrial {
+    return {
+      nctId: study.protocolSection.identificationModule.nctId,
+      briefTitle: study.protocolSection.identificationModule.briefTitle,
+      officialTitle: study.protocolSection.identificationModule.officialTitle,
+      overallStatus: study.protocolSection.statusModule.overallStatus,
+      phase: study.protocolSection.designModule?.phases?.[0],
+      studyType: study.protocolSection.designModule?.studyType,
+      condition: study.protocolSection.conditionsModule?.conditions?.[0],
+      lastUpdatePosted: study.protocolSection.statusModule.lastUpdatePostDate,
+      isFavorite: false
+    };
+  }
+
+  getTrialById(nctId: string): Observable<ClinicalTrial> {
+    return this.http.get<any>(`${this.apiUrl}/${nctId}`).pipe(
+      map(study => {
+        const trial = this.convertApiTrialToModel(study);
+        // Check if trial is in favorites
+        const currentFavorites = this.favorites.value;
+        trial.isFavorite = currentFavorites.some(fav => fav.nctId === trial.nctId);
+        return trial;
+      })
+    );
+  }
 }

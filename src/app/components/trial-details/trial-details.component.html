@@ -1,0 +1,74 @@
+<div class="trial-details-container">
+  <div class="back-button">
+    <button mat-button (click)="goBack()">
+      <mat-icon>arrow_back</mat-icon>
+      Back to Trials
+    </button>
+  </div>
+
+  <ng-container *ngIf="loading">
+    <div class="loading-container">
+      <mat-spinner diameter="40"></mat-spinner>
+      <p>Loading trial details...</p>
+    </div>
+  </ng-container>
+
+  <ng-container *ngIf="error">
+    <div class="error-container">
+      <mat-icon color="warn">error</mat-icon>
+      <p>Error loading trial details. Please try again later.</p>
+    </div>
+  </ng-container>
+
+  <ng-container *ngIf="!loading && !error && trial">
+    <mat-card class="trial-card">
+      <mat-card-header>
+        <mat-card-title>{{ trial.briefTitle }}</mat-card-title>
+        <button mat-icon-button class="favorite-button" (click)="toggleFavorite()">
+          <mat-icon [color]="trial.isFavorite ? 'warn' : ''">
+            {{ trial.isFavorite ? 'favorite' : 'favorite_border' }}
+          </mat-icon>
+        </button>
+      </mat-card-header>
+
+      <mat-card-content>
+        <div class="detail-section">
+          <h3>Official Title</h3>
+          <p>{{ trial.officialTitle }}</p>
+        </div>
+
+        <div class="trial-info-grid">
+          <div class="info-item">
+            <h4>Status</h4>
+            <p>{{ trial.overallStatus }}</p>
+          </div>
+
+          <div class="info-item">
+            <h4>Phase</h4>
+            <p>{{ trial.phase || 'Not Specified' }}</p>
+          </div>
+
+          <div class="info-item">
+            <h4>Study Type</h4>
+            <p>{{ trial.studyType }}</p>
+          </div>
+
+          <div class="info-item">
+            <h4>Condition</h4>
+            <p>{{ trial.condition || 'Not Specified' }}</p>
+          </div>
+
+          <div class="info-item">
+            <h4>NCT ID</h4>
+            <p>{{ trial.nctId }}</p>
+          </div>
+
+          <div class="info-item">
+            <h4>Last Updated</h4>
+            <p>{{ trial.lastUpdatePosted | date }}</p>
+          </div>
+        </div>
+      </mat-card-content>
+    </mat-card>
+  </ng-container>
+</div>

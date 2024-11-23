@@ -5,12 +5,16 @@ import { ClinicalTrialsService } from '../../services/clinical-trials.service';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { ClinicalTrial } from '../../models/clinical-trial.model';
 import { NoopAnimationsModule } from '@angular/platform-browser/animations';
+import { RouterTestingModule } from '@angular/router/testing';
+import { Router } from '@angular/router';
+import { By } from '@angular/platform-browser';
 
 describe('TrialListComponent', () => {
   let component: TrialListComponent;
   let fixture: ComponentFixture<TrialListComponent>;
   let clinicalTrialsService: jasmine.SpyObj<ClinicalTrialsService>;
   let snackBar: jasmine.SpyObj<MatSnackBar>;
+  let router: jasmine.SpyObj<Router>;
 
   const mockTrial: ClinicalTrial = {
     nctId: 'NCT123',
@@ -35,6 +39,7 @@ describe('TrialListComponent', () => {
       'toggleFavorite'
     ]);
     const snackBarSpy = jasmine.createSpyObj('MatSnackBar', ['open']);
+    const routerSpy = jasmine.createSpyObj('Router', ['navigate']);
 
     serviceSpy.getTrials.and.returnValue(trialsSubject.asObservable());
     serviceSpy.getFavorites.and.returnValue(favoritesSubject.asObservable());
@@ -42,11 +47,13 @@ describe('TrialListComponent', () => {
     await TestBed.configureTestingModule({
       imports: [
         TrialListComponent,
-        NoopAnimationsModule
+        NoopAnimationsModule,
+        RouterTestingModule
       ],
       providers: [
         { provide: ClinicalTrialsService, useValue: serviceSpy },
-        { provide: MatSnackBar, useValue: snackBarSpy }
+        { provide: MatSnackBar, useValue: snackBarSpy },
+        { provide: Router, useValue: routerSpy }
       ]
     }).compileComponents();
 
@@ -54,6 +61,7 @@ describe('TrialListComponent', () => {
     component = fixture.componentInstance;
     clinicalTrialsService = TestBed.inject(ClinicalTrialsService) as jasmine.SpyObj<ClinicalTrialsService>;
     snackBar = TestBed.inject(MatSnackBar) as jasmine.SpyObj<MatSnackBar>;
+    router = TestBed.inject(Router) as jasmine.SpyObj<Router>;
     fixture.detectChanges();
   });
 
@@ -142,6 +150,49 @@ describe('TrialListComponent', () => {
     it('should stop timer and unsubscribe on destroy', () => {
       component.ngOnDestroy();
       expect(clinicalTrialsService.toggleTimer).toHaveBeenCalledWith(false);
+    });
+  });
+
+  describe('trial details navigation', () => {
+    it('should navigate to trial details when viewTrialDetails is called', () => {
+      const mockTrial = { ...mockTrial };
+      component.viewTrialDetails(mockTrial);
+      expect(router.navigate).toHaveBeenCalledWith(['/trial', mockTrial.nctId]);
+    });
+  });
+
+  describe('Navigation', () => {
+    it('should navigate to details when clicking on trial card content', () => {
+      const mockTrial = { ...mockTrial };
+      const cardContent = fixture.debugElement.query(By.css('mat-card-content'));
+      
+      cardContent.triggerEventHandler('click', null);
+      component.viewTrialDetails(mockTrial);
+      
+      expect(router.navigate).toHaveBeenCalledWith(['/trial', mockTrial.nctId]);
+    });
+
+    it('should navigate to details when clicking on trial list content', () => {
+      component.viewMode = 'list';
+      fixture.detectChanges();
+      
+      const mockTrial = { ...mockTrial };
+      const listContent = fixture.debugElement.query(By.css('.trial-content'));
+      
+      listContent.triggerEventHandler('click', null);
+      component.viewTrialDetails(mockTrial);
+      
+      expect(router.navigate).toHaveBeenCalledWith(['/trial', mockTrial.nctId]);
+    });
+
+    it('should not navigate when clicking favorite button', () => {
+      const mockTrial = { ...mockTrial };
+      const favoriteButton = fixture.debugElement.query(By.css('button[mat-icon-button]'));
+      
+      favoriteButton.triggerEventHandler('click', null);
+      
+      expect(router.navigate).not.toHaveBeenCalled();
+      expect(clinicalTrialsService.toggleFavorite).toHaveBeenCalledWith(mockTrial);
     });
   });
 });

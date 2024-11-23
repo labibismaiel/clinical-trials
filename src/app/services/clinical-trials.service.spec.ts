@@ -2,6 +2,7 @@ import { TestBed, fakeAsync, tick } from '@angular/core/testing';
 import { HttpClientTestingModule, HttpTestingController } from '@angular/common/http/testing';
 import { ClinicalTrialsService } from './clinical-trials.service';
 import { ClinicalTrial } from '../models/clinical-trial.model';
+import { of, throwError } from 'rxjs';
 
 describe('ClinicalTrialsService', () => {
   let service: ClinicalTrialsService;
@@ -205,6 +206,121 @@ describe('ClinicalTrialsService', () => {
       service.getTrials().subscribe(trials => {
         const trial = trials.find(t => t.nctId === mockTrial.nctId);
         expect(trial?.isFavorite).toBe(true);
+      });
+    });
+  });
+
+  describe('getTrialById', () => {
+    const mockApiResponse = {
+      studies: [{
+        protocolSection: {
+          identificationModule: {
+            nctId: 'NCT123',
+            briefTitle: 'Test Trial',
+            officialTitle: 'Official Test Trial'
+          },
+          statusModule: {
+            overallStatus: 'Recruiting',
+            phase: 'Phase 1'
+          },
+          conditionsModule: {
+            conditions: ['Test Condition']
+          },
+          descriptionModule: {
+            briefSummary: 'Test description'
+          },
+          designModule: {
+            studyType: 'Interventional',
+            enrollmentInfo: {
+              count: 100
+            }
+          },
+          armsInterventionsModule: {
+            interventions: [{
+              name: 'Test intervention'
+            }]
+          },
+          contactsLocationsModule: {
+            locations: [{
+              facility: 'Test location'
+            }]
+          }
+        }
+      }]
+    };
+
+    it('should fetch trial by ID', (done) => {
+      const testId = 'NCT123';
+      httpMock.get.and.returnValue(of(mockApiResponse));
+
+      service.getTrialById(testId).subscribe(trial => {
+        expect(trial.nctId).toBe(testId);
+        expect(trial.briefTitle).toBe('Test Trial');
+        expect(trial.overallStatus).toBe('Recruiting');
+        expect(trial.phase).toBe('Phase 1');
+        expect(trial.condition).toBe('Test Condition');
+        expect(trial.description).toBe('Test description');
+        expect(trial.studyType).toBe('Interventional');
+        expect(trial.enrollment).toBe(100);
+        expect(trial.interventions).toEqual(['Test intervention']);
+        expect(trial.locations).toEqual(['Test location']);
+        done();
+      });
+
+      expect(httpMock.get).toHaveBeenCalledWith(
+        `https://clinicaltrials.gov/api/v2/studies/${testId}`
+      );
+    });
+
+    it('should handle error when fetching trial by ID', (done) => {
+      const testId = 'NCT123';
+      const errorResponse = new Error('API Error');
+      httpMock.get.and.returnValue(throwError(() => errorResponse));
+
+      service.getTrialById(testId).subscribe({
+        error: (error) => {
+          expect(error).toBeTruthy();
+          done();
+        }
+      });
+    });
+
+    it('should convert API response to ClinicalTrial model', (done) => {
+      const testId = 'NCT123';
+      httpMock.get.and.returnValue(of(mockApiResponse));
+
+      service.getTrialById(testId).subscribe(trial => {
+        expect(trial instanceof ClinicalTrial).toBeTrue();
+        done();
+      });
+    });
+
+    it('should handle missing optional fields in API response', (done) => {
+      const testId = 'NCT123';
+      const incompleteResponse = {
+        studies: [{
+          protocolSection: {
+            identificationModule: {
+              nctId: testId,
+              briefTitle: 'Test Trial'
+            },
+            statusModule: {
+              overallStatus: 'Recruiting'
+            }
+          }
+        }]
+      };
+
+      httpMock.get.and.returnValue(of(incompleteResponse));
+
+      service.getTrialById(testId).subscribe(trial => {
+        expect(trial.nctId).toBe(testId);
+        expect(trial.briefTitle).toBe('Test Trial');
+        expect(trial.phase).toBeUndefined();
+        expect(trial.condition).toBeUndefined();
+        expect(trial.interventions).toEqual([]);
+        expect(trial.locations).toEqual([]);
+        done();
       });
     });
   });
