@@ -1,8 +1,8 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { BehaviorSubject, throwError } from 'rxjs';
+import { BehaviorSubject, of, throwError } from 'rxjs';
 import { Router } from '@angular/router';
 import { FavoritesComponent } from './favorites.component';
-import { ClinicalTrialsService } from '../../services/clinical-trials.service';
+import { FavoritesService } from '../../services/favorites.service';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { ClinicalTrial } from '../../models/clinical-trial.model';
 import { NoopAnimationsModule } from '@angular/platform-browser/animations';
@@ -11,12 +11,12 @@ import { By } from '@angular/platform-browser';
 describe('FavoritesComponent', () => {
   let component: FavoritesComponent;
   let fixture: ComponentFixture<FavoritesComponent>;
-  let clinicalTrialsService: jasmine.SpyObj<ClinicalTrialsService>;
+  let favoritesService: jasmine.SpyObj<FavoritesService>;
   let snackBar: jasmine.SpyObj<MatSnackBar>;
   let router: jasmine.SpyObj<Router>;
 
   const mockTrial: ClinicalTrial = {
-    nctId: 'NCT123',
+    nctId: 'NCT12345',
     briefTitle: 'Test Trial',
     officialTitle: 'Official Test Trial',
     overallStatus: 'Recruiting',
@@ -30,15 +30,12 @@ describe('FavoritesComponent', () => {
   const favoritesSubject = new BehaviorSubject<ClinicalTrial[]>([mockTrial]);
 
   beforeEach(async () => {
-    const serviceSpy = jasmine.createSpyObj('ClinicalTrialsService', [
-      'getFavorites',
-      'toggleFavorite',
-      'removeFromFavorites'
-    ]);
+    const favoritesServiceSpy = jasmine.createSpyObj('FavoritesService', ['removeFromFavorites'], {
+      favorites$: of([mockTrial])
+    });
+
     const snackBarSpy = jasmine.createSpyObj('MatSnackBar', ['open']);
     const routerSpy = jasmine.createSpyObj('Router', ['navigate']);
-
-    serviceSpy.getFavorites.and.returnValue(favoritesSubject.asObservable());
 
     await TestBed.configureTestingModule({
       imports: [
@@ -46,7 +43,7 @@ describe('FavoritesComponent', () => {
         NoopAnimationsModule
       ],
       providers: [
-        { provide: ClinicalTrialsService, useValue: serviceSpy },
+        { provide: FavoritesService, useValue: favoritesServiceSpy },
         { provide: MatSnackBar, useValue: snackBarSpy },
         { provide: Router, useValue: routerSpy }
       ]
@@ -54,7 +51,7 @@ describe('FavoritesComponent', () => {
 
     fixture = TestBed.createComponent(FavoritesComponent);
     component = fixture.componentInstance;
-    clinicalTrialsService = TestBed.inject(ClinicalTrialsService) as jasmine.SpyObj<ClinicalTrialsService>;
+    favoritesService = TestBed.inject(FavoritesService) as jasmine.SpyObj<FavoritesService>;
     snackBar = TestBed.inject(MatSnackBar) as jasmine.SpyObj<MatSnackBar>;
     router = TestBed.inject(Router) as jasmine.SpyObj<Router>;
     fixture.detectChanges();
@@ -66,7 +63,7 @@ describe('FavoritesComponent', () => {
 
   it('should initialize with favorites from service', () => {
     expect(component.favorites).toEqual([mockTrial]);
-    expect(clinicalTrialsService.getFavorites).toHaveBeenCalled();
+    expect(component.loading).toBeFalsy();
   });
 
   describe('loading state', () => {
@@ -92,14 +89,14 @@ describe('FavoritesComponent', () => {
 
   describe('removeFavorite', () => {
     it('should remove trial from favorites', () => {
-      clinicalTrialsService.removeFromFavorites.and.returnValue(undefined);
+      favoritesService.removeFromFavorites.and.returnValue(undefined);
       component.removeFavorite(mockTrial);
 
-      expect(clinicalTrialsService.removeFromFavorites).toHaveBeenCalledWith(mockTrial.nctId);
+      expect(favoritesService.removeFromFavorites).toHaveBeenCalledWith(mockTrial.nctId);
     });
 
     it('should handle error when removing favorite', () => {
-      clinicalTrialsService.removeFromFavorites.and.throwError('Test error');
+      favoritesService.removeFromFavorites.and.throwError('Test error');
 
       expect(() => component.removeFavorite(mockTrial)).toThrow('Test error');
       expect(snackBar.open).toHaveBeenCalledWith(
@@ -143,11 +140,9 @@ describe('FavoritesComponent', () => {
 
   describe('cleanup', () => {
     it('should unsubscribe on destroy', () => {
-      const unsubscribeSpy = spyOn(
-        component['subscriptions'][0],
-        'unsubscribe'
-      );
-      
+      const subscription = component['subscriptions'][0];
+      const unsubscribeSpy = spyOn(subscription, 'unsubscribe');
+
       component.ngOnDestroy();
       expect(unsubscribeSpy).toHaveBeenCalled();
     });
