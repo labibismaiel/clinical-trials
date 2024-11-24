@@ -142,7 +142,7 @@ export class TrialListComponent implements OnInit, OnDestroy {
       duration: 3000,
       horizontalPosition: 'end',
       verticalPosition: 'bottom',
-      panelClass: type === 'error' ? ['error-snackbar'] : undefined
+      panelClass: type === 'error' ? ['error-snackbar'] : ['success-snackbar']
     });
   }
 }

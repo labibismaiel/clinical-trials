@@ -8,6 +8,7 @@
         Auto-Fetch
       </mat-slide-toggle>
     </div>
+
     <mat-button-toggle-group color="primary" [(ngModel)]="viewMode" aria-label="View Mode">
       <mat-button-toggle value="card">
         <mat-icon>grid_view</mat-icon>
@@ -30,9 +31,9 @@
 
   <!-- Card View -->
   <div class="trials-grid" *ngIf="!loading && !error && viewMode === 'card'">
-    <mat-card *ngFor="let trial of trials" class="trial-card">
+    <mat-card *ngFor="let trial of trials" class="trial-card" (click)="viewTrialDetails(trial)">
       <mat-card-header>
-        <mat-card-title (click)="viewTrialDetails(trial)" class="clickable">
+        <mat-card-title>
           {{ trial.briefTitle }}
         </mat-card-title>
       </mat-card-header>
@@ -54,10 +55,10 @@
       </mat-card-content>
       <mat-card-actions>
         <button mat-icon-button 
-                (click)="toggleFavorite(trial)" 
+                (click)="$event.stopPropagation(); toggleFavorite(trial)" 
                 [disabled]="!trial.isFavorite && maxFavoritesReached"
                 [attr.aria-label]="trial.isFavorite ? 'Remove from favorites' : 'Add to favorites'">
-          <mat-icon [color]="trial.isFavorite ? 'warn' : ''">
+          <mat-icon [class.favorite]="trial.isFavorite">
             {{ trial.isFavorite ? 'favorite' : 'favorite_border' }}
           </mat-icon>
         </button>
@@ -67,23 +68,32 @@
 
   <!-- List View -->
   <div class="trials-list" *ngIf="!loading && !error && viewMode === 'list'">
-    <mat-card *ngFor="let trial of trials" class="trial-list-item">
+    <mat-card *ngFor="let trial of trials" class="trial-list-item" (click)="viewTrialDetails(trial)">
       <div class="trial-content">
         <div class="trial-header">
-          <h3 (click)="viewTrialDetails(trial)" class="clickable">{{ trial.briefTitle }}</h3>
+          <h3>{{ trial.briefTitle }}</h3>
         </div>
-        <div class="trial-details">
-          <span class="status">{{ trial.overallStatus }}</span>
-          <span *ngIf="trial.phase">{{ trial.phase }}</span>
-          <span *ngIf="trial.condition">{{ trial.condition }}</span>
+        <div class="trial-info">
+          <div class="info-item">
+            <span class="label">Status:</span>
+            <span class="value status">{{ trial.overallStatus }}</span>
+          </div>
+          <div class="info-item" *ngIf="trial.phase">
+            <span class="label">Phase:</span>
+            <span class="value">{{ trial.phase }}</span>
+          </div>
+          <div class="info-item" *ngIf="trial.condition">
+            <span class="label">Condition:</span>
+            <span class="value">{{ trial.condition }}</span>
+          </div>
         </div>
       </div>
       <div class="trial-actions">
         <button mat-icon-button 
-                (click)="toggleFavorite(trial)"
+                (click)="$event.stopPropagation(); toggleFavorite(trial)"
                 [disabled]="!trial.isFavorite && maxFavoritesReached"
                 [attr.aria-label]="trial.isFavorite ? 'Remove from favorites' : 'Add to favorites'">
-          <mat-icon [color]="trial.isFavorite ? 'warn' : ''">
+          <mat-icon [class.favorite]="trial.isFavorite">
             {{ trial.isFavorite ? 'favorite' : 'favorite_border' }}
           </mat-icon>
         </button>

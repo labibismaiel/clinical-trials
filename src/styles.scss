@@ -98,6 +98,16 @@ body {
   display: none !important;
 }
 
+// Custom snackbar styles
+.success-snackbar {
+  background-color: #4caf50 !important; // Success green
+  color: white !important;
+
+  .mat-simple-snackbar-action {
+    color: white !important;
+  }
+}
+
 // Snackbar styles
 .mat-mdc-snack-bar-container {
   &.success-snackbar, &.error-snackbar {

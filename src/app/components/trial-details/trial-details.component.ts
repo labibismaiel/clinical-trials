@@ -77,11 +77,18 @@ export class TrialDetailsComponent implements OnInit, OnDestroy {
   toggleFavorite() {
     if (!this.trial) return;
 
-    this.clinicalTrialsService.toggleFavorite(this.trial);
     this.trial.isFavorite = !this.trial.isFavorite;
-    this.showNotification(
-      this.trial.isFavorite ? 'Trial added to favorites' : 'Trial removed from favorites'
-    );
+    
+    const message = this.trial.isFavorite
+      ? 'Trial added to favorites'
+      : 'Trial removed from favorites';
+      
+    this.snackBar.open(message, 'Close', {
+      duration: 3000,
+      panelClass: ['success-snackbar']
+    });
+    
+    this.clinicalTrialsService.toggleFavorite(this.trial);
   }
 
   goBack() {
