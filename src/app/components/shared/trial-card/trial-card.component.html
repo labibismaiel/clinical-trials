@@ -3,6 +3,14 @@
   <mat-card *ngSwitchCase="'card'" class="trial-card" (click)="viewTrialDetails()">
     <mat-card-header>
       <mat-card-title>{{ trial.briefTitle }}</mat-card-title>
+      <button 
+        mat-icon-button 
+        color="warn"
+        (click)="toggleFavorite($event)"
+        [disabled]="!trial.isFavorite && maxFavoritesReached"
+        [matTooltip]="!trial.isFavorite && maxFavoritesReached ? 'Maximum favorites reached' : ''">
+        <mat-icon>{{ trial.isFavorite ? 'favorite' : 'favorite_border' }}</mat-icon>
+      </button>
     </mat-card-header>
 
     <mat-card-content>
@@ -19,49 +27,39 @@
           <span class="label">Condition:</span>
           <span class="value">{{ trial.condition }}</span>
         </div>
-        <div class="detail-row" *ngIf="trial.enrollment">
-          <span class="label">Enrollment:</span>
-          <span class="value">{{ trial.enrollment }} participants</span>
-        </div>
       </div>
     </mat-card-content>
 
-    <mat-card-actions align="end">
-      <button mat-icon-button (click)="toggleFavorite($event)">
-        <mat-icon [class.favorite]="trial.isFavorite">
-          {{ trial.isFavorite ? 'favorite' : 'favorite_border' }}
-        </mat-icon>
+    <mat-card-actions>
+      <button 
+        mat-button 
+        color="primary" 
+        (click)="viewTrialDetails()">
+        View Details
+        <mat-icon>arrow_forward</mat-icon>
       </button>
     </mat-card-actions>
   </mat-card>
 
   <!-- List View -->
   <mat-card *ngSwitchCase="'list'" class="trial-list-item" (click)="viewTrialDetails()">
-    <div class="trial-content">
-      <div class="trial-header">
+    <div class="trial-list-content">
+      <div class="trial-list-header">
         <h3>{{ trial.briefTitle }}</h3>
+        <button 
+          mat-icon-button 
+          color="warn"
+          (click)="toggleFavorite($event)"
+          [disabled]="!trial.isFavorite && maxFavoritesReached"
+          [matTooltip]="!trial.isFavorite && maxFavoritesReached ? 'Maximum favorites reached' : ''">
+          <mat-icon>{{ trial.isFavorite ? 'favorite' : 'favorite_border' }}</mat-icon>
+        </button>
       </div>
-      <div class="trial-info">
-        <div class="info-item">
-          <span class="label">Status:</span>
-          <span class="value status">{{ trial.overallStatus }}</span>
-        </div>
-        <div class="info-item" *ngIf="trial.phase">
-          <span class="label">Phase:</span>
-          <span class="value">{{ trial.phase }}</span>
-        </div>
-        <div class="info-item" *ngIf="trial.condition">
-          <span class="label">Condition:</span>
-          <span class="value">{{ trial.condition }}</span>
-        </div>
+      <div class="trial-list-details">
+        <span class="status">Status: {{ trial.overallStatus }}</span>
+        <span class="phase" *ngIf="trial.phase">Phase: {{ trial.phase }}</span>
+        <span class="condition" *ngIf="trial.condition">Condition: {{ trial.condition }}</span>
       </div>
-    </div>
-    <div class="trial-actions">
-      <button mat-icon-button (click)="toggleFavorite($event)">
-        <mat-icon [class.favorite]="trial.isFavorite">
-          {{ trial.isFavorite ? 'favorite' : 'favorite_border' }}
-        </mat-icon>
-      </button>
     </div>
   </mat-card>
 </ng-container>

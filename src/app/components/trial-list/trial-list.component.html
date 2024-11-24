@@ -53,75 +53,24 @@
 
     <!-- Card View -->
     <div class="trials-grid" *ngIf="trials.length > 0 && viewMode === 'card'">
-      <mat-card 
-        *ngFor="let trial of trials; trackBy: trackByTrialId" 
-        class="trial-card">
-        <mat-card-header>
-          <mat-card-title>
-            {{ trial.briefTitle }}
-          </mat-card-title>
-        </mat-card-header>
-        <mat-card-content>
-          <div class="trial-details">
-            <div class="detail-row">
-              <span class="label">Status:</span>
-              <span class="value">{{ trial.overallStatus }}</span>
-            </div>
-            <div class="detail-row" *ngIf="trial.phase">
-              <span class="label">Phase:</span>
-              <span class="value">{{ trial.phase }}</span>
-            </div>
-            <div class="detail-row" *ngIf="trial.condition">
-              <span class="label">Condition:</span>
-              <span class="value">{{ trial.condition }}</span>
-            </div>
-          </div>
-        </mat-card-content>
-        <mat-card-actions>
-          <button 
-            mat-icon-button 
-            color="warn"
-            (click)="toggleFavorite(trial); $event.stopPropagation()"
-            [disabled]="!trial.isFavorite && maxFavoritesReached"
-            [matTooltip]="!trial.isFavorite && maxFavoritesReached ? 'Maximum favorites reached' : ''">
-            <mat-icon>{{ trial.isFavorite ? 'favorite' : 'favorite_border' }}</mat-icon>
-          </button>
-          <button 
-            mat-button 
-            color="primary" 
-            (click)="viewTrialDetails(trial); $event.stopPropagation()">
-            View Details
-            <mat-icon>arrow_forward</mat-icon>
-          </button>
-        </mat-card-actions>
-      </mat-card>
+      <app-trial-card
+        *ngFor="let trial of trials; trackBy: trackByTrialId"
+        [trial]="trial"
+        [viewMode]="'card'"
+        [maxFavoritesReached]="maxFavoritesReached"
+        (favoriteToggled)="toggleFavorite($event)">
+      </app-trial-card>
     </div>
 
     <!-- List View -->
     <div class="trials-list" *ngIf="trials.length > 0 && viewMode === 'list'">
-      <mat-card 
-        *ngFor="let trial of trials; trackBy: trackByTrialId" 
-        class="trial-list-item" 
-        (click)="viewTrialDetails(trial)">
-        <div class="trial-list-content">
-          <div class="trial-list-header">
-            <h3>{{ trial.briefTitle }}</h3>
-            <button 
-              mat-icon-button 
-              color="warn"
-              (click)="toggleFavorite(trial); $event.stopPropagation()"
-              [disabled]="!trial.isFavorite && maxFavoritesReached"
-              [matTooltip]="!trial.isFavorite && maxFavoritesReached ? 'Maximum favorites reached' : ''">
-              <mat-icon>{{ trial.isFavorite ? 'favorite' : 'favorite_border' }}</mat-icon>
-            </button>
-          </div>
-          <div class="trial-list-details">
-            <span class="status">Status: {{ trial.overallStatus }}</span>
-            <span class="phase" *ngIf="trial.phase">Phase: {{ trial.phase }}</span>
-            <span class="condition" *ngIf="trial.condition">Condition: {{ trial.condition }}</span>
-          </div>
-        </div>
-      </mat-card>
+      <app-trial-card
+        *ngFor="let trial of trials; trackBy: trackByTrialId"
+        [trial]="trial"
+        [viewMode]="'list'"
+        [maxFavoritesReached]="maxFavoritesReached"
+        (favoriteToggled)="toggleFavorite($event)">
+      </app-trial-card>
     </div>
   </ng-container>
 </div>

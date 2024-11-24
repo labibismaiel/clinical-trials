@@ -1,56 +1,128 @@
 import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { MatCardModule } from '@angular/material/card';
+import { Router } from '@angular/router';
+import { FormsModule } from '@angular/forms';
+import { MatSlideToggleModule } from '@angular/material/slide-toggle';
+import { MatButtonToggleModule } from '@angular/material/button-toggle';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
-import { FormsModule } from '@angular/forms';
-import { MatButtonToggleModule } from '@angular/material/button-toggle';
-import { MatSnackBarModule, MatSnackBar } from '@angular/material/snack-bar';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
-import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { ClinicalTrialsService } from '../../services/clinical-trials.service';
 import { FavoritesService } from '../../services/favorites.service';
 import { ClinicalTrial } from '../../models/clinical-trial.model';
+import { TrialCardComponent } from '../shared/trial-card/trial-card.component';
+import { MatSnackBarModule, MatSnackBar } from '@angular/material/snack-bar';
+import { MatCardModule } from '@angular/material/card';
 import { Subscription, merge } from 'rxjs';
-import { Router } from '@angular/router';
 
 @Component({
   selector: 'app-trial-list',
+  templateUrl: './trial-list.component.html',
+  styleUrls: ['./trial-list.component.scss'],
   standalone: true,
   imports: [
     CommonModule,
-    MatCardModule,
+    FormsModule,
+    MatSlideToggleModule,
+    MatButtonToggleModule,
     MatIconModule,
     MatButtonModule,
-    FormsModule,
-    MatButtonToggleModule,
-    MatSnackBarModule,
     MatProgressSpinnerModule,
-    MatSlideToggleModule,
-    MatTooltipModule
-  ],
-  templateUrl: './trial-list.component.html',
-  styleUrls: ['./trial-list.component.scss']
+    MatTooltipModule,
+    MatCardModule,
+    MatSnackBarModule,
+    TrialCardComponent
+  ]
 })
 export class TrialListComponent implements OnInit, OnDestroy {
   trials: ClinicalTrial[] = [];
-  viewMode: 'card' | 'list' = 'card';
-  maxFavoritesReached = false;
   loading = false;
   error = false;
   autoFetch = false;
+  viewMode: 'card' | 'list' = 'card';
+  maxFavoritesReached = false;
   private subscriptions: Subscription[] = [];
 
   constructor(
     private clinicalTrialsService: ClinicalTrialsService,
     private favoritesService: FavoritesService,
-    private snackBar: MatSnackBar,
-    private router: Router
+    private router: Router,
+    private snackBar: MatSnackBar
   ) {}
 
-  ngOnInit() {
-    // Subscribe to trials
+  ngOnInit(): void {
+    this.fetchTrials();
+    this.subscribeToFavorites();
+    this.subscribeToTrials();
+    this.subscribeToLoadingState();
+  }
+
+  ngOnDestroy(): void {
+    this.subscriptions.forEach(sub => sub.unsubscribe());
+    this.clinicalTrialsService.toggleTimer(false).catch(error => {
+      console.error('Error stopping timer:', error);
+    });
+  }
+
+  fetchTrials(): void {
+    this.clinicalTrialsService.fetchInitialTrials();
+  }
+
+  toggleAutoFetch(event: { checked: boolean }): void {
+    try {
+      const newState = event.checked;
+      console.log('Toggling auto-fetch:', newState);
+      this.autoFetch = newState;
+      this.clinicalTrialsService.toggleTimer(newState);
+      this.showNotification(
+        newState 
+          ? 'Auto-fetch started. Trials will update every 5 seconds.' 
+          : 'Auto-fetch stopped.',
+        'success'
+      );
+    } catch (error) {
+      console.error('Error toggling auto-fetch:', error);
+      this.autoFetch = false;
+      this.showNotification('Error toggling auto-fetch. Please try again.', 'error');
+    }
+  }
+
+  toggleFavorite(trial: ClinicalTrial): void {
+    if (!trial.isFavorite && this.maxFavoritesReached) {
+      this.showNotification('Maximum favorites limit reached (10)', 'error');
+      return;
+    }
+
+    this.clinicalTrialsService.toggleFavorite(trial).subscribe({
+      next: (updatedTrial) => {
+        const index = this.trials.findIndex(t => t.nctId === updatedTrial.nctId);
+        if (index !== -1) {
+          this.trials[index] = updatedTrial;
+          this.trials = [...this.trials];
+          this.showNotification(
+            updatedTrial.isFavorite ? 'Trial added to favorites' : 'Trial removed from favorites'
+          );
+        }
+      },
+      error: (error) => console.error('Error toggling favorite:', error)
+    });
+  }
+
+  trackByTrialId(index: number, trial: ClinicalTrial): string {
+    return trial.nctId;
+  }
+
+  private subscribeToFavorites(): void {
+    this.subscriptions.push(
+      this.favoritesService.favorites$.subscribe(favorites => {
+        console.log('Favorites updated:', favorites);
+        this.maxFavoritesReached = favorites.length >= 10;
+      })
+    );
+  }
+
+  private subscribeToTrials(): void {
     this.subscriptions.push(
       this.clinicalTrialsService.getTrials().subscribe({
         next: (trials) => {
@@ -65,8 +137,9 @@ export class TrialListComponent implements OnInit, OnDestroy {
         }
       })
     );
+  }
 
-    // Subscribe to loading state
+  private subscribeToLoadingState(): void {
     this.subscriptions.push(
       this.clinicalTrialsService.getLoadingState().subscribe(
         isLoading => {
@@ -75,79 +148,6 @@ export class TrialListComponent implements OnInit, OnDestroy {
         }
       )
     );
-
-    // Subscribe to favorites
-    this.subscriptions.push(
-      this.favoritesService.favorites$.subscribe(favorites => {
-        console.log('Favorites updated:', favorites);
-        this.maxFavoritesReached = favorites.length >= 10;
-      })
-    );
-
-    // Initial fetch
-    this.fetchTrials();
-  }
-
-  ngOnDestroy() {
-    this.subscriptions.forEach(sub => sub.unsubscribe());
-    this.clinicalTrialsService.toggleTimer(false).catch(error => {
-      console.error('Error stopping timer:', error);
-    });
-  }
-
-  fetchTrials() {
-    this.clinicalTrialsService.fetchInitialTrials();
-  }
-
-  async toggleAutoFetch(event?: any) {
-    try {
-      const newState = event ? event.checked : !this.autoFetch;
-      console.log('Toggling auto-fetch:', newState);
-      this.autoFetch = newState;
-      await this.clinicalTrialsService.toggleTimer(this.autoFetch);
-      
-      this.showNotification(
-        this.autoFetch 
-          ? 'Auto-fetch started. Trials will update every 5 seconds.' 
-          : 'Auto-fetch stopped.',
-        'success'
-      );
-    } catch (error) {
-      console.error('Error toggling auto-fetch:', error);
-      this.autoFetch = false;
-      this.showNotification('Error toggling auto-fetch. Please try again.', 'error');
-    }
-  }
-
-  viewTrialDetails(trial: ClinicalTrial) {
-    this.router.navigate(['/trial', trial.nctId]);
-  }
-
-  toggleFavorite(trial: ClinicalTrial) {
-    if (!trial.isFavorite && this.maxFavoritesReached) {
-      this.showNotification('Maximum favorites limit reached (10)', 'error');
-      return;
-    }
-
-    this.clinicalTrialsService.toggleFavorite(trial).subscribe({
-      next: (updatedTrial: ClinicalTrial) => {
-        const index = this.trials.findIndex(t => t.nctId === updatedTrial.nctId);
-        if (index !== -1) {
-          this.trials[index] = updatedTrial;
-        }
-        this.showNotification(
-          updatedTrial.isFavorite ? 'Trial added to favorites' : 'Trial removed from favorites'
-        );
-      },
-      error: (error: Error) => {
-        console.error('Error toggling favorite:', error);
-        this.showNotification('Error updating favorite status', 'error');
-      }
-    });
-  }
-
-  trackByTrialId(index: number, trial: ClinicalTrial): string {
-    return trial.nctId;
   }
 
   private showNotification(message: string, type: 'success' | 'error' = 'success') {
