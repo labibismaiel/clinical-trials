@@ -1,6 +1,7 @@
 <div class="container">
   <div class="controls">
-    <mat-button-toggle-group [(ngModel)]="viewMode" aria-label="View mode" appearance="standard">
+    <h1>Favorite Trials</h1>
+    <mat-button-toggle-group [(ngModel)]="viewMode" aria-label="View mode">
       <mat-button-toggle value="card" aria-label="Card view">
         <mat-icon>grid_view</mat-icon>
       </mat-button-toggle>
@@ -10,79 +11,22 @@
     </mat-button-toggle-group>
   </div>
 
-  <!-- Card View -->
-  <div class="favorites-grid" *ngIf="viewMode === 'card'">
-    <mat-card *ngFor="let trial of favorites" class="favorite-card">
-      <mat-card-header>
-        <mat-card-title>{{ trial.briefTitle }}</mat-card-title>
-        <mat-card-subtitle>NCT ID: {{ trial.nctId }}</mat-card-subtitle>
-      </mat-card-header>
+  <ng-container *ngIf="!loading">
+    <div [class]="viewMode === 'card' ? 'trials-grid' : 'trials-list'">
+      <app-trial-card
+        *ngFor="let trial of favorites"
+        [trial]="trial"
+        [viewMode]="viewMode"
+        (favoriteToggled)="removeFavorite($event)"
+      ></app-trial-card>
+    </div>
 
-      <mat-card-content>
-        <div class="trial-details">
-          <div class="detail-row">
-            <span class="label">Status:</span>
-            <span class="value">{{ trial.overallStatus }}</span>
-          </div>
-          <div class="detail-row" *ngIf="trial.phase">
-            <span class="label">Phase:</span>
-            <span class="value">{{ trial.phase }}</span>
-          </div>
-          <div class="detail-row" *ngIf="trial.studyType">
-            <span class="label">Study Type:</span>
-            <span class="value">{{ trial.studyType }}</span>
-          </div>
-          <div class="detail-row" *ngIf="trial.condition">
-            <span class="label">Condition:</span>
-            <span class="value">{{ trial.condition }}</span>
-          </div>
-          <div class="detail-row" *ngIf="trial.lastUpdatePosted">
-            <span class="label">Last Updated:</span>
-            <span class="value">{{ trial.lastUpdatePosted | date }}</span>
-          </div>
-        </div>
-      </mat-card-content>
+    <div class="no-favorites" *ngIf="favorites.length === 0">
+      <p>You haven't added any trials to your favorites yet.</p>
+    </div>
+  </ng-container>
 
-      <mat-card-actions>
-        <button mat-button (click)="removeFavorite(trial)">
-          <mat-icon>favorite</mat-icon>
-          Remove from Favorites
-        </button>
-      </mat-card-actions>
-    </mat-card>
-  </div>
-
-  <!-- List View -->
-  <div class="favorites-list" *ngIf="viewMode === 'list'">
-    <mat-card *ngFor="let trial of favorites" class="favorite-list-item">
-      <div class="list-content">
-        <div class="list-main">
-          <h3>{{ trial.briefTitle }}</h3>
-          <p class="list-id">NCT ID: {{ trial.nctId }}</p>
-        </div>
-
-        <div class="list-details">
-          <span class="list-tag status">{{ trial.overallStatus }}</span>
-          <span class="list-tag" *ngIf="trial.phase">{{ trial.phase }}</span>
-          <span class="list-tag" *ngIf="trial.studyType">{{ trial.studyType }}</span>
-          <span class="list-tag" *ngIf="trial.condition">{{ trial.condition }}</span>
-        </div>
-
-        <div class="list-actions">
-          <button
-            mat-icon-button
-            color="primary"
-            (click)="removeFavorite(trial)"
-            aria-label="Remove from favorites"
-            class="favorite-btn favorited">
-            <mat-icon>favorite</mat-icon>
-          </button>
-        </div>
-      </div>
-    </mat-card>
-  </div>
-
-  <div *ngIf="favorites.length === 0" class="no-favorites">
-    <p>No favorite trials yet. Add some from the main list!</p>
+  <div class="loading" *ngIf="loading">
+    <mat-spinner diameter="40"></mat-spinner>
   </div>
 </div>

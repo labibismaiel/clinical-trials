@@ -3,6 +3,7 @@ import { HttpClient } from '@angular/common/http';
 import { BehaviorSubject, Observable, interval, of } from 'rxjs';
 import { map, take } from 'rxjs/operators';
 import { ClinicalTrial } from '../models/clinical-trial.model';
+import { FavoritesService } from './favorites.service';
 
 @Injectable({
   providedIn: 'root'
@@ -10,21 +11,19 @@ import { ClinicalTrial } from '../models/clinical-trial.model';
 export class ClinicalTrialsService {
   private apiUrl = 'https://clinicaltrials.gov/api/v2/studies';
   private trials = new BehaviorSubject<ClinicalTrial[]>([]);
-  private favorites = new BehaviorSubject<ClinicalTrial[]>([]);
   private timerSubscription: any;
   private trialIds: string[] = [];
   private usedIds: Set<string> = new Set();
 
-  constructor(private http: HttpClient) {
+  constructor(
+    private http: HttpClient,
+    private favoritesService: FavoritesService
+  ) {
     this.fetchInitialTrials();
   }
 
   getTrials(): Observable<ClinicalTrial[]> {
     return this.trials.asObservable();
-  }
-
-  getFavorites(): Observable<ClinicalTrial[]> {
-    return this.favorites.asObservable();
   }
 
   private async fetchTrialIds() {
@@ -46,7 +45,6 @@ export class ClinicalTrialsService {
   private getRandomUnusedId(): string | null {
     const availableIds = this.trialIds.filter(id => !this.usedIds.has(id));
     if (availableIds.length === 0) {
-      // If we've used all IDs, clear the used set and start over
       this.usedIds.clear();
       return this.trialIds[Math.floor(Math.random() * this.trialIds.length)];
     }
@@ -76,12 +74,9 @@ export class ClinicalTrialsService {
       };
 
       const currentTrials = this.trials.value;
-      const currentFavorites = this.favorites.value;
+      // Check if the trial is in favorites
+      newTrial.isFavorite = this.favoritesService.isFavorite(newTrial.nctId);
 
-      // Add favorite status
-      newTrial.isFavorite = currentFavorites.some(fav => fav.nctId === newTrial.nctId);
-
-      // Add new trial to the list, removing the oldest if we have 10 already
       let updatedTrials = currentTrials;
       if (currentTrials.length >= 10) {
         updatedTrials = [...currentTrials.slice(1), newTrial];
@@ -98,7 +93,7 @@ export class ClinicalTrialsService {
       format: 'json',
       pageSize: '10'
     };
-    console.log('fetching', this.apiUrl, params);
+    
     this.http.get<any>(this.apiUrl, { params }).subscribe(response => {
       if (!response.studies) return;
 
@@ -114,10 +109,9 @@ export class ClinicalTrialsService {
         isFavorite: false
       }));
 
-      const currentFavorites = this.favorites.value;
       const updatedTrials = trials.map((trial: ClinicalTrial) => ({
         ...trial,
-        isFavorite: currentFavorites.some(fav => fav.nctId === trial.nctId)
+        isFavorite: this.favoritesService.isFavorite(trial.nctId)
       }));
 
       this.trials.next(updatedTrials);
@@ -126,10 +120,12 @@ export class ClinicalTrialsService {
 
   async toggleTimer(enabled: boolean) {
     if (enabled) {
-      // Only fetch IDs the first time timer is enabled
       if (this.trialIds.length === 0) {
         await this.fetchTrialIds();
       }
+
+      // Fetch immediately
+      this.fetchRandomTrials();
 
       if (!this.timerSubscription) {
         this.timerSubscription = interval(5000).subscribe(() => {
@@ -143,43 +139,40 @@ export class ClinicalTrialsService {
   }
 
   toggleFavorite(trial: ClinicalTrial): Observable<ClinicalTrial> {
-    trial.isFavorite = !trial.isFavorite;
-    if (trial.isFavorite) {
-      this.favorites.next([...this.favorites.value, trial]);
+    const updatedTrial = { ...trial, isFavorite: !trial.isFavorite };
+    
+    if (updatedTrial.isFavorite) {
+      this.favoritesService.addToFavorites(updatedTrial);
     } else {
-      const currentFavorites = this.favorites.value;
-      const updatedFavorites = currentFavorites.filter(t => t.nctId !== trial.nctId);
-      this.favorites.next(updatedFavorites);
+      this.favoritesService.removeFromFavorites(updatedTrial.nctId);
     }
+
+    // Update the trial in the trials list
     const currentTrials = this.trials.value;
     const updatedTrials = currentTrials.map(t =>
-      t.nctId === trial.nctId ? { ...t, isFavorite: !t.isFavorite } : t
+      t.nctId === trial.nctId ? updatedTrial : t
     );
     this.trials.next(updatedTrials);
-    return of(trial);
-  }
 
-  private convertApiTrialToModel(study: any): ClinicalTrial {
-    return {
-      nctId: study.protocolSection.identificationModule.nctId,
-      briefTitle: study.protocolSection.identificationModule.briefTitle,
-      officialTitle: study.protocolSection.identificationModule.officialTitle,
-      overallStatus: study.protocolSection.statusModule.overallStatus,
-      phase: study.protocolSection.designModule?.phases?.[0],
-      studyType: study.protocolSection.designModule?.studyType,
-      condition: study.protocolSection.conditionsModule?.conditions?.[0],
-      lastUpdatePosted: study.protocolSection.statusModule.lastUpdatePostDate,
-      isFavorite: false
-    };
+    return of(updatedTrial);
   }
 
   getTrialById(nctId: string): Observable<ClinicalTrial> {
     return this.http.get<any>(`${this.apiUrl}/${nctId}`).pipe(
       map(study => {
-        const trial = this.convertApiTrialToModel(study);
-        // Check if trial is in favorites
-        const currentFavorites = this.favorites.value;
-        trial.isFavorite = currentFavorites.some(fav => fav.nctId === trial.nctId);
+        if (!study) throw new Error('Trial not found');
+        
+        const trial: ClinicalTrial = {
+          nctId: study.protocolSection.identificationModule.nctId,
+          briefTitle: study.protocolSection.identificationModule.briefTitle,
+          officialTitle: study.protocolSection.identificationModule.officialTitle,
+          overallStatus: study.protocolSection.statusModule.overallStatus,
+          phase: study.protocolSection.designModule?.phases?.[0],
+          studyType: study.protocolSection.designModule?.studyType,
+          condition: study.protocolSection.conditionsModule?.conditions?.[0],
+          lastUpdatePosted: study.protocolSection.statusModule.lastUpdatePostDate,
+          isFavorite: this.favoritesService.isFavorite(nctId)
+        };
         return trial;
       })
     );

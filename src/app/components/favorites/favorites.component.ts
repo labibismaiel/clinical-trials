@@ -5,8 +5,10 @@ import { MatCardModule } from '@angular/material/card';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonToggleModule } from '@angular/material/button-toggle';
-import { ClinicalTrialsService } from '../../services/clinical-trials.service';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { FavoritesService } from '../../services/favorites.service';
 import { ClinicalTrial } from '../../models/clinical-trial.model';
+import { TrialCardComponent } from '../shared/trial-card/trial-card.component';
 
 @Component({
   selector: 'app-favorites',
@@ -17,7 +19,9 @@ import { ClinicalTrial } from '../../models/clinical-trial.model';
     MatCardModule,
     MatButtonModule,
     MatIconModule,
-    MatButtonToggleModule
+    MatButtonToggleModule,
+    MatProgressSpinnerModule,
+    TrialCardComponent
   ],
   templateUrl: './favorites.component.html',
   styleUrls: ['./favorites.component.scss']
@@ -25,16 +29,18 @@ import { ClinicalTrial } from '../../models/clinical-trial.model';
 export class FavoritesComponent implements OnInit {
   favorites: ClinicalTrial[] = [];
   viewMode: 'card' | 'list' = 'card';
+  loading = true;
 
-  constructor(private clinicalTrialsService: ClinicalTrialsService) {}
+  constructor(private favoritesService: FavoritesService) {}
 
-  ngOnInit() {
-    this.clinicalTrialsService.getFavorites().subscribe(favorites => {
+  ngOnInit(): void {
+    this.favoritesService.favorites$.subscribe(favorites => {
       this.favorites = favorites;
+      this.loading = false;
     });
   }
 
-  removeFavorite(trial: ClinicalTrial) {
-    this.clinicalTrialsService.toggleFavorite(trial);
+  removeFavorite(trial: ClinicalTrial): void {
+    this.favoritesService.removeFromFavorites(trial.nctId);
   }
 }

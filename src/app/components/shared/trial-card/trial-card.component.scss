@@ -1,0 +1,154 @@
+.trial-card {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  cursor: pointer;
+
+  &:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.12);
+  }
+
+  mat-card-header {
+    margin-bottom: 1rem;
+    padding: 1rem 1rem 0;
+
+    ::ng-deep .mat-mdc-card-header-text {
+      width: 100%;
+    }
+
+    mat-card-title {
+      font-size: 1.2rem;
+      line-height: 1.4;
+      color: #2196f3;
+      margin: 0;
+      padding-bottom: 0.5rem;
+      position: relative;
+      
+      &::after {
+        content: '';
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        width: 0;
+        height: 2px;
+        background-color: #2196f3;
+        transition: width 0.2s ease;
+      }
+    }
+
+    &:hover mat-card-title::after {
+      width: 100%;
+    }
+  }
+
+  .trial-details {
+    padding: 0 1rem;
+  }
+
+  .detail-row {
+    display: flex;
+    margin-bottom: 0.75rem;
+    align-items: baseline;
+    gap: 0.5rem;
+
+    .label {
+      font-weight: 500;
+      color: rgba(0, 0, 0, 0.6);
+      min-width: 80px;
+    }
+
+    .value {
+      color: rgba(0, 0, 0, 0.87);
+    }
+  }
+
+  mat-card-actions {
+    .mat-icon {
+      &.favorite {
+        color: #2196f3;
+      }
+    }
+  }
+}
+
+.trial-list-item {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem;
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.12);
+  }
+
+  .trial-content {
+    flex: 1;
+    min-width: 0;
+
+    .trial-header {
+      h3 {
+        margin: 0 0 0.75rem;
+        font-size: 1.1rem;
+        line-height: 1.4;
+        color: #2196f3;
+      }
+    }
+
+    .trial-info {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem 2rem;
+
+      .info-item {
+        display: flex;
+        align-items: baseline;
+        gap: 0.5rem;
+
+        .label {
+          font-weight: 500;
+          color: rgba(0, 0, 0, 0.6);
+          font-size: 0.9rem;
+        }
+
+        .value {
+          color: rgba(0, 0, 0, 0.87);
+          font-size: 0.9rem;
+
+          &.status {
+            font-weight: 500;
+          }
+        }
+      }
+    }
+  }
+
+  .trial-actions {
+    flex-shrink: 0;
+    
+    .mat-icon {
+      transition: color 0.2s ease;
+
+      &.favorite {
+        color: #2196f3;
+      }
+    }
+
+    button:not([disabled]):hover .mat-icon {
+      transform: scale(1.1);
+    }
+  }
+}
+
+@media (max-width: 600px) {
+  .trial-list-item {
+    .trial-info {
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+  }
+}

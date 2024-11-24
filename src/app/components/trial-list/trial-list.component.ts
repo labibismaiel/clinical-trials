@@ -9,6 +9,7 @@ import { MatSnackBarModule, MatSnackBar } from '@angular/material/snack-bar';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { ClinicalTrialsService } from '../../services/clinical-trials.service';
+import { FavoritesService } from '../../services/favorites.service';
 import { ClinicalTrial } from '../../models/clinical-trial.model';
 import { Subscription, interval } from 'rxjs';
 import { Router } from '@angular/router';
@@ -37,19 +38,19 @@ export class TrialListComponent implements OnInit, OnDestroy {
   loading = false;
   error = false;
   autoFetch = false;
-  private autoFetchSubscription?: Subscription;
   private subscriptions: Subscription[] = [];
 
   constructor(
     private clinicalTrialsService: ClinicalTrialsService,
     private snackBar: MatSnackBar,
-    private router: Router
+    private router: Router,
+    private favoritesService: FavoritesService
   ) {}
 
   ngOnInit() {
     this.fetchTrials();
     this.subscriptions.push(
-      this.clinicalTrialsService.getFavorites().subscribe(favorites => {
+      this.favoritesService.favorites$.subscribe(favorites => {
         this.maxFavoritesReached = favorites.length >= 10;
       })
     );
@@ -57,7 +58,7 @@ export class TrialListComponent implements OnInit, OnDestroy {
 
   ngOnDestroy() {
     this.subscriptions.forEach(sub => sub.unsubscribe());
-    this.stopAutoFetch();
+    this.clinicalTrialsService.toggleTimer(false);
   }
 
   fetchTrials() {
@@ -82,32 +83,20 @@ export class TrialListComponent implements OnInit, OnDestroy {
     );
   }
 
-  toggleAutoFetch() {
-    if (this.autoFetch) {
-      this.stopAutoFetch();
-    } else {
-      this.startAutoFetch();
-    }
-    this.autoFetch = !this.autoFetch;
-  }
-
-  private startAutoFetch() {
-    this.autoFetchSubscription = interval(30000).subscribe(() => {
-      this.fetchTrials();
+  toggleAutoFetch(event?: any) {
+    const newState = event ? event.checked : !this.autoFetch;
+    this.autoFetch = newState;
+    this.clinicalTrialsService.toggleTimer(this.autoFetch).then(() => {
+      if (this.autoFetch) {
+        this.snackBar.open('Auto-fetch started. Trials will update every 5 seconds.', 'Close', {
+          duration: 3000,
+        });
+      } else {
+        this.snackBar.open('Auto-fetch stopped.', 'Close', {
+          duration: 3000,
+        });
+      }
     });
-    this.snackBar.open('Auto-fetch started. Trials will update every 30 seconds.', 'Close', {
-      duration: 3000,
-    });
-  }
-
-  private stopAutoFetch() {
-    if (this.autoFetchSubscription) {
-      this.autoFetchSubscription.unsubscribe();
-      this.autoFetchSubscription = undefined;
-      this.snackBar.open('Auto-fetch stopped.', 'Close', {
-        duration: 3000,
-      });
-    }
   }
 
   viewTrialDetails(trial: ClinicalTrial) {
