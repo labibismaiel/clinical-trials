@@ -1,19 +1,24 @@
 import { Injectable } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
-import { BehaviorSubject, Observable, interval, of } from 'rxjs';
-import { map, take } from 'rxjs/operators';
+import { HttpClient, HttpErrorResponse, HttpParams } from '@angular/common/http';
+import { BehaviorSubject, Observable, interval, of, throwError } from 'rxjs';
+import { catchError, map, retry, take, tap } from 'rxjs/operators';
 import { ClinicalTrial } from '../models/clinical-trial.model';
+import { ClinicalTrialsApiResponse } from '../models/clinical-trials-api.model';
 import { FavoritesService } from './favorites.service';
 
 @Injectable({
   providedIn: 'root'
 })
 export class ClinicalTrialsService {
-  private apiUrl = 'https://clinicaltrials.gov/api/v2/studies';
-  private trials = new BehaviorSubject<ClinicalTrial[]>([]);
+  private readonly apiUrl = 'https://clinicaltrials.gov/api/v2/studies';
+  private readonly maxTrials = 10;
+  private readonly fetchInterval = 5000; // 5 seconds
+  private readonly STORAGE_KEY = 'clinical_trials';
+  private trials = new BehaviorSubject<ClinicalTrial[]>(this.loadTrialsFromStorage());
   private timerSubscription: any;
   private trialIds: string[] = [];
   private usedIds: Set<string> = new Set();
+  private isLoading = new BehaviorSubject<boolean>(false);
 
   constructor(
     private http: HttpClient,
@@ -26,23 +31,57 @@ export class ClinicalTrialsService {
     return this.trials.asObservable();
   }
 
-  private async fetchTrialIds() {
-    const params = {
-      format: 'json',
-      pageSize: '1000',
-      fields: 'NCTId'
-    };
+  getLoadingState(): Observable<boolean> {
+    return this.isLoading.asObservable();
+  }
+
+  getTrialById(id: string): Observable<ClinicalTrial> {
+    return this.http.get<ClinicalTrial>(`${this.apiUrl}/${id}`).pipe(
+      catchError(this.handleError)
+    );
+  }
+
+  private handleError(error: HttpErrorResponse) {
+    let errorMessage = 'An error occurred';
+    if (error.error instanceof ErrorEvent) {
+      // Client-side error
+      errorMessage = error.error.message;
+    } else {
+      // Server-side error
+      errorMessage = `Error Code: ${error.status}\nMessage: ${error.message}`;
+    }
+    console.error(errorMessage);
+    return throwError(() => new Error(errorMessage));
+  }
+
+  private async fetchTrialIds(): Promise<void> {
+    const params = new HttpParams()
+      .set('format', 'json')
+      .set('pageSize', '1000')
+      .set('fields', 'NCTId');
 
     try {
-      const response = await this.http.get<any>(this.apiUrl, { params }).toPromise();
-      this.trialIds = response.studies.map((study: any) => study.protocolSection.identificationModule.nctId);
-      console.log(`Fetched ${this.trialIds.length} trial IDs`);
+      const response = await this.http.get<ClinicalTrialsApiResponse>(this.apiUrl, { params })
+        .pipe(
+          retry(3),
+          catchError(this.handleError)
+        ).toPromise();
+
+      if (response?.studies) {
+        this.trialIds = response.studies.map(study => 
+          study.protocolSection.identificationModule.nctId
+        );
+        console.log(`Fetched ${this.trialIds.length} trial IDs`);
+      }
     } catch (error) {
       console.error('Error fetching trial IDs:', error);
+      throw error;
     }
   }
 
   private getRandomUnusedId(): string | null {
+    if (!this.trialIds.length) return null;
+
     const availableIds = this.trialIds.filter(id => !this.usedIds.has(id));
     if (availableIds.length === 0) {
       this.usedIds.clear();
@@ -54,127 +93,200 @@ export class ClinicalTrialsService {
     return selectedId;
   }
 
-  fetchRandomTrials() {
+  private mapApiResponseToTrial(study: any): ClinicalTrial {
+    console.log('Mapping study:', study);
+    const trial: ClinicalTrial = {
+      nctId: study.protocolSection?.identificationModule?.nctId,
+      briefTitle: study.protocolSection?.identificationModule?.briefTitle,
+      officialTitle: study.protocolSection?.identificationModule?.officialTitle,
+      overallStatus: study.protocolSection?.statusModule?.overallStatus,
+      phase: study.protocolSection?.designModule?.phases?.[0],
+      studyType: study.protocolSection?.designModule?.studyType,
+      condition: study.protocolSection?.conditionsModule?.conditions?.[0],
+      lastUpdatePosted: study.protocolSection?.statusModule?.lastUpdatePostDate,
+      description: study.protocolSection?.descriptionModule?.briefSummary,
+      interventions: study.protocolSection?.armsInterventionsModule?.interventions?.map(
+        (i: any) => `${i.interventionType}: ${i.interventionName}`
+      ),
+      locations: study.protocolSection?.contactsLocationsModule?.locations?.map(
+        (l: any) => `${l.facility}, ${l.city}, ${l.country}`
+      ),
+      isFavorite: false
+    };
+
+    return {
+      ...trial,
+      isFavorite: this.favoritesService.isFavorite(trial.nctId)
+    };
+  }
+
+  private loadTrialsFromStorage(): ClinicalTrial[] {
+    try {
+      const storedTrials = localStorage.getItem(this.STORAGE_KEY);
+      return storedTrials ? JSON.parse(storedTrials) : [];
+    } catch (error) {
+      console.error('Error loading trials from storage:', error);
+      return [];
+    }
+  }
+
+  private saveTrialsToStorage(trials: ClinicalTrial[]): void {
+    try {
+      localStorage.setItem(this.STORAGE_KEY, JSON.stringify(trials));
+    } catch (error) {
+      console.error('Error saving trials to storage:', error);
+    }
+  }
+
+  fetchRandomTrials(): void {
     const selectedId = this.getRandomUnusedId();
     if (!selectedId) return;
 
-    this.http.get<any>(`${this.apiUrl}/${selectedId}`).subscribe(study => {
-      if (!study) return;
+    console.log('Fetching trial with ID:', selectedId);
+    this.isLoading.next(true);
+    this.http.get<ClinicalTrialsApiResponse>(`${this.apiUrl}/${selectedId}`)
+      .pipe(
+        retry(3),
+        catchError(this.handleError),
+        tap(() => this.isLoading.next(false))
+      )
+      .subscribe({
+        next: (response) => {
+          try {
+            const newTrial = this.mapApiResponseToTrial(response);
+            console.log('New trial:', newTrial);
+            
+            // Get current trials and create a new array
+            const currentTrials = [...this.trials.value];
+            console.log('Current trials before update:', currentTrials);
 
-      const newTrial: ClinicalTrial = {
-        nctId: study.protocolSection.identificationModule.nctId,
-        briefTitle: study.protocolSection.identificationModule.briefTitle,
-        officialTitle: study.protocolSection.identificationModule.officialTitle,
-        overallStatus: study.protocolSection.statusModule.overallStatus,
-        phase: study.protocolSection.designModule?.phases?.[0],
-        studyType: study.protocolSection.designModule?.studyType,
-        condition: study.protocolSection.conditionsModule?.conditions?.[0],
-        lastUpdatePosted: study.protocolSection.statusModule.lastUpdatePostDate,
-        isFavorite: false
-      };
+            // If we have max trials, remove the oldest one and add new one at the end
+            if (currentTrials.length >= this.maxTrials) {
+              console.log('At max trials, removing oldest and adding new one');
+              // Get the trial being removed
+              const removedTrial = currentTrials[0];
+              if (removedTrial.isFavorite) {
+                console.log('Removing trial from favorites:', removedTrial.nctId);
+                this.favoritesService.removeFromFavorites(removedTrial.nctId);
+              }
 
-      const currentTrials = this.trials.value;
-      // Check if the trial is in favorites
-      newTrial.isFavorite = this.favoritesService.isFavorite(newTrial.nctId);
-
-      let updatedTrials = currentTrials;
-      if (currentTrials.length >= 10) {
-        updatedTrials = [...currentTrials.slice(1), newTrial];
-      } else {
-        updatedTrials = [...currentTrials, newTrial];
-      }
-
-      this.trials.next(updatedTrials);
-    });
+              // Remove the first (oldest) trial and add new one at the end
+              const updatedTrials = [...currentTrials.slice(1), newTrial];
+              console.log('Updated trials:', updatedTrials);
+              this.saveTrialsToStorage(updatedTrials);
+              this.trials.next(updatedTrials);
+            } else {
+              console.log('Adding new trial to the list');
+              // Add to the existing array
+              const updatedTrials = [...currentTrials, newTrial];
+              console.log('Updated trials:', updatedTrials);
+              this.saveTrialsToStorage(updatedTrials);
+              this.trials.next(updatedTrials);
+            }
+          } catch (error) {
+            console.error('Error processing trial:', error);
+          }
+        },
+        error: (error) => {
+          console.error('Error fetching random trial:', error);
+          this.isLoading.next(false);
+        }
+      });
   }
 
-  fetchInitialTrials() {
-    const params = {
-      format: 'json',
-      pageSize: '10'
-    };
-    
-    this.http.get<any>(this.apiUrl, { params }).subscribe(response => {
-      if (!response.studies) return;
+  fetchInitialTrials(): void {
+    // If we have trials in localStorage, don't fetch initial trials
+    if (this.trials.value.length > 0) {
+      console.log('Using trials from localStorage:', this.trials.value);
+      return;
+    }
 
-      const trials = response.studies.map((study: any) => ({
-        nctId: study.protocolSection.identificationModule.nctId,
-        briefTitle: study.protocolSection.identificationModule.briefTitle,
-        officialTitle: study.protocolSection.identificationModule.officialTitle,
-        overallStatus: study.protocolSection.statusModule.overallStatus,
-        phase: study.protocolSection.designModule?.phases?.[0],
-        studyType: study.protocolSection.designModule?.studyType,
-        condition: study.protocolSection.conditionsModule?.conditions?.[0],
-        lastUpdatePosted: study.protocolSection.statusModule.lastUpdatePostDate,
-        isFavorite: false
-      }));
+    console.log('No trials in localStorage, fetching from API');
+    const params = new HttpParams()
+      .set('format', 'json')
+      .set('pageSize', String(this.maxTrials));
 
-      const updatedTrials = trials.map((trial: ClinicalTrial) => ({
-        ...trial,
-        isFavorite: this.favoritesService.isFavorite(trial.nctId)
-      }));
-
-      this.trials.next(updatedTrials);
-    });
+    this.isLoading.next(true);
+    this.http.get<ClinicalTrialsApiResponse>(this.apiUrl, { params })
+      .pipe(
+        retry(3),
+        catchError(this.handleError),
+        tap(() => this.isLoading.next(false))
+      )
+      .subscribe({
+        next: (response) => {
+          try {
+            const newTrial = this.mapApiResponseToTrial(response);
+            console.log('Fetched initial trial from API:', newTrial);
+            this.saveTrialsToStorage([newTrial]);
+            this.trials.next([newTrial]);
+          } catch (error) {
+            console.error('Error processing response:', error);
+          }
+        },
+        error: (error) => {
+          console.error('Error fetching initial trials:', error);
+          this.isLoading.next(false);
+        }
+      });
   }
 
-  async toggleTimer(enabled: boolean) {
-    if (enabled) {
-      if (this.trialIds.length === 0) {
-        await this.fetchTrialIds();
+  async toggleTimer(enabled: boolean): Promise<void> {
+    try {
+      console.log('Toggle timer called with enabled:', enabled);
+      
+      // Clean up existing subscription if any
+      if (this.timerSubscription) {
+        console.log('Cleaning up existing subscription');
+        this.timerSubscription.unsubscribe();
+        this.timerSubscription = null;
       }
 
-      // Fetch immediately
-      this.fetchRandomTrials();
+      if (enabled) {
+        if (this.trialIds.length === 0) {
+          console.log('Fetching trial IDs');
+          await this.fetchTrialIds();
+          console.log('Fetched trial IDs:', this.trialIds.length);
+        }
 
-      if (!this.timerSubscription) {
-        this.timerSubscription = interval(5000).subscribe(() => {
+        // Fetch immediately
+        console.log('Initial fetch');
+        this.fetchRandomTrials();
+
+        // Start new subscription
+        console.log('Starting timer subscription');
+        this.timerSubscription = interval(this.fetchInterval).subscribe(() => {
+          console.log('Timer triggered, fetching new trial');
           this.fetchRandomTrials();
         });
       }
-    } else if (!enabled && this.timerSubscription) {
-      this.timerSubscription.unsubscribe();
-      this.timerSubscription = null;
+    } catch (error) {
+      console.error('Error toggling timer:', error);
+      throw error;
     }
   }
 
   toggleFavorite(trial: ClinicalTrial): Observable<ClinicalTrial> {
     const updatedTrial = { ...trial, isFavorite: !trial.isFavorite };
     
-    if (updatedTrial.isFavorite) {
-      this.favoritesService.addToFavorites(updatedTrial);
-    } else {
-      this.favoritesService.removeFromFavorites(updatedTrial.nctId);
+    try {
+      if (updatedTrial.isFavorite) {
+        this.favoritesService.addToFavorites(updatedTrial);
+      } else {
+        this.favoritesService.removeFromFavorites(updatedTrial.nctId);
+      }
+
+      // Update the trial in the trials list
+      const currentTrials = this.trials.value;
+      const updatedTrials = currentTrials.map(t =>
+        t.nctId === trial.nctId ? updatedTrial : t
+      );
+      this.saveTrialsToStorage(updatedTrials); // Save to storage before updating BehaviorSubject
+      this.trials.next(updatedTrials);
+
+      return of(updatedTrial);
+    } catch (error) {
+      return throwError(() => error);
     }
-
-    // Update the trial in the trials list
-    const currentTrials = this.trials.value;
-    const updatedTrials = currentTrials.map(t =>
-      t.nctId === trial.nctId ? updatedTrial : t
-    );
-    this.trials.next(updatedTrials);
-
-    return of(updatedTrial);
-  }
-
-  getTrialById(nctId: string): Observable<ClinicalTrial> {
-    return this.http.get<any>(`${this.apiUrl}/${nctId}`).pipe(
-      map(study => {
-        if (!study) throw new Error('Trial not found');
-        
-        const trial: ClinicalTrial = {
-          nctId: study.protocolSection.identificationModule.nctId,
-          briefTitle: study.protocolSection.identificationModule.briefTitle,
-          officialTitle: study.protocolSection.identificationModule.officialTitle,
-          overallStatus: study.protocolSection.statusModule.overallStatus,
-          phase: study.protocolSection.designModule?.phases?.[0],
-          studyType: study.protocolSection.designModule?.studyType,
-          condition: study.protocolSection.conditionsModule?.conditions?.[0],
-          lastUpdatePosted: study.protocolSection.statusModule.lastUpdatePostDate,
-          isFavorite: this.favoritesService.isFavorite(nctId)
-        };
-        return trial;
-      })
-    );
   }
 }

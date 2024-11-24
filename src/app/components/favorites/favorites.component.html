@@ -1,18 +1,35 @@
 <div class="container">
   <div class="controls">
     <h1>Favorite Trials</h1>
-    <mat-button-toggle-group [(ngModel)]="viewMode" aria-label="View mode">
-      <mat-button-toggle value="card" aria-label="Card view">
+    <mat-button-toggle-group 
+      color="primary"
+      [(ngModel)]="viewMode" 
+      aria-label="View Mode">
+      <mat-button-toggle value="card">
         <mat-icon>grid_view</mat-icon>
       </mat-button-toggle>
-      <mat-button-toggle value="list" aria-label="List view">
+      <mat-button-toggle value="list">
         <mat-icon>view_list</mat-icon>
       </mat-button-toggle>
     </mat-button-toggle-group>
   </div>
 
+  <!-- Loading State -->
+  <div class="loading-container" *ngIf="loading">
+    <mat-spinner diameter="40"></mat-spinner>
+    <p class="loading-text">Loading favorites...</p>
+  </div>
+
+  <!-- Content -->
   <ng-container *ngIf="!loading">
-    <div [class]="viewMode === 'card' ? 'trials-grid' : 'trials-list'">
+    <!-- Empty State -->
+    <div class="empty-state" *ngIf="favorites.length === 0">
+      <mat-icon>favorite_border</mat-icon>
+      <p>You haven't added any trials to your favorites yet.</p>
+    </div>
+
+    <!-- Favorites List -->
+    <div [class]="viewMode === 'card' ? 'trials-grid' : 'trials-list'" *ngIf="favorites.length > 0">
       <app-trial-card
         *ngFor="let trial of favorites"
         [trial]="trial"
@@ -20,13 +37,5 @@
         (favoriteToggled)="removeFavorite($event)"
       ></app-trial-card>
     </div>
-
-    <div class="no-favorites" *ngIf="favorites.length === 0">
-      <p>You haven't added any trials to your favorites yet.</p>
-    </div>
   </ng-container>
-
-  <div class="loading" *ngIf="loading">
-    <mat-spinner diameter="40"></mat-spinner>
-  </div>
 </div>
