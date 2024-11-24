@@ -72,7 +72,6 @@ export class TrialListComponent implements OnInit, OnDestroy {
   toggleAutoFetch(event: { checked: boolean }): void {
     try {
       const newState = event.checked;
-      console.log('Toggling auto-fetch:', newState);
       this.autoFetch = newState;
       this.clinicalTrialsService.toggleTimer(newState);
       this.showNotification(
@@ -100,13 +99,17 @@ export class TrialListComponent implements OnInit, OnDestroy {
         if (index !== -1) {
           this.trials[index] = updatedTrial;
           this.trials = [...this.trials];
-          this.showNotification(
-            updatedTrial.isFavorite ? 'Trial added to favorites' : 'Trial removed from favorites'
-          );
         }
       },
-      error: (error) => console.error('Error toggling favorite:', error)
+      error: (error) => {
+        console.error('Error toggling favorite:', error);
+        this.showNotification('Error updating favorite status', 'error');
+      }
     });
+  }
+
+  viewTrialDetails(trial: ClinicalTrial): void {
+    this.router.navigate(['/trial', trial.nctId]);
   }
 
   trackByTrialId(index: number, trial: ClinicalTrial): string {
@@ -116,7 +119,6 @@ export class TrialListComponent implements OnInit, OnDestroy {
   private subscribeToFavorites(): void {
     this.subscriptions.push(
       this.favoritesService.favorites$.subscribe(favorites => {
-        console.log('Favorites updated:', favorites);
         this.maxFavoritesReached = favorites.length >= 10;
       })
     );
@@ -126,7 +128,6 @@ export class TrialListComponent implements OnInit, OnDestroy {
     this.subscriptions.push(
       this.clinicalTrialsService.getTrials().subscribe({
         next: (trials) => {
-          console.log('Component received trials:', trials);
           this.trials = trials;
           this.error = false;
         },
@@ -143,7 +144,6 @@ export class TrialListComponent implements OnInit, OnDestroy {
     this.subscriptions.push(
       this.clinicalTrialsService.getLoadingState().subscribe(
         isLoading => {
-          console.log('Loading state changed:', isLoading);
           this.loading = isLoading;
         }
       )

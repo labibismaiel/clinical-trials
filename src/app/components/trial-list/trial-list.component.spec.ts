@@ -1,18 +1,29 @@
 import { ComponentFixture, TestBed, fakeAsync, tick } from '@angular/core/testing';
-import { BehaviorSubject } from 'rxjs';
+import { BehaviorSubject, of, throwError } from 'rxjs';
 import { TrialListComponent } from './trial-list.component';
 import { ClinicalTrialsService } from '../../services/clinical-trials.service';
+import { FavoritesService } from '../../services/favorites.service';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { ClinicalTrial } from '../../models/clinical-trial.model';
 import { NoopAnimationsModule } from '@angular/platform-browser/animations';
 import { RouterTestingModule } from '@angular/router/testing';
 import { Router } from '@angular/router';
 import { By } from '@angular/platform-browser';
+import { MatSlideToggleModule } from '@angular/material/slide-toggle';
+import { MatButtonToggleModule } from '@angular/material/button-toggle';
+import { MatIconModule } from '@angular/material/icon';
+import { MatButtonModule } from '@angular/material/button';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { MatTooltipModule } from '@angular/material/tooltip';
+import { MatCardModule } from '@angular/material/card';
+import { MatSnackBarModule } from '@angular/material/snack-bar';
+import { FormsModule } from '@angular/forms';
 
 describe('TrialListComponent', () => {
   let component: TrialListComponent;
   let fixture: ComponentFixture<TrialListComponent>;
   let clinicalTrialsService: jasmine.SpyObj<ClinicalTrialsService>;
+  let favoritesService: jasmine.SpyObj<FavoritesService>;
   let snackBar: jasmine.SpyObj<MatSnackBar>;
   let router: jasmine.SpyObj<Router>;
 
@@ -30,28 +41,48 @@ describe('TrialListComponent', () => {
 
   const trialsSubject = new BehaviorSubject<ClinicalTrial[]>([mockTrial]);
   const favoritesSubject = new BehaviorSubject<ClinicalTrial[]>([]);
+  const loadingSubject = new BehaviorSubject<boolean>(false);
 
   beforeEach(async () => {
     const serviceSpy = jasmine.createSpyObj('ClinicalTrialsService', [
       'getTrials',
       'getFavorites',
       'toggleTimer',
-      'toggleFavorite'
+      'toggleFavorite',
+      'fetchInitialTrials',
+      'getLoadingState'
     ]);
+    const favoritesSpy = jasmine.createSpyObj('FavoritesService', ['getFavorites'], {
+      favorites$: favoritesSubject.asObservable()
+    });
     const snackBarSpy = jasmine.createSpyObj('MatSnackBar', ['open']);
     const routerSpy = jasmine.createSpyObj('Router', ['navigate']);
 
     serviceSpy.getTrials.and.returnValue(trialsSubject.asObservable());
     serviceSpy.getFavorites.and.returnValue(favoritesSubject.asObservable());
+    serviceSpy.getLoadingState.and.returnValue(loadingSubject.asObservable());
+    serviceSpy.toggleTimer.and.returnValue(Promise.resolve());
+    serviceSpy.toggleFavorite.and.returnValue(of({ ...mockTrial, isFavorite: true }));
+    favoritesSpy.getFavorites.and.returnValue(favoritesSubject.asObservable());
 
     await TestBed.configureTestingModule({
       imports: [
-        TrialListComponent,
         NoopAnimationsModule,
-        RouterTestingModule
+        RouterTestingModule,
+        FormsModule,
+        MatSlideToggleModule,
+        MatButtonToggleModule,
+        MatIconModule,
+        MatButtonModule,
+        MatProgressSpinnerModule,
+        MatTooltipModule,
+        MatCardModule,
+        MatSnackBarModule,
+        TrialListComponent
       ],
       providers: [
         { provide: ClinicalTrialsService, useValue: serviceSpy },
+        { provide: FavoritesService, useValue: favoritesSpy },
         { provide: MatSnackBar, useValue: snackBarSpy },
         { provide: Router, useValue: routerSpy }
       ]
@@ -60,6 +91,7 @@ describe('TrialListComponent', () => {
     fixture = TestBed.createComponent(TrialListComponent);
     component = fixture.componentInstance;
     clinicalTrialsService = TestBed.inject(ClinicalTrialsService) as jasmine.SpyObj<ClinicalTrialsService>;
+    favoritesService = TestBed.inject(FavoritesService) as jasmine.SpyObj<FavoritesService>;
     snackBar = TestBed.inject(MatSnackBar) as jasmine.SpyObj<MatSnackBar>;
     router = TestBed.inject(Router) as jasmine.SpyObj<Router>;
     fixture.detectChanges();
@@ -76,24 +108,79 @@ describe('TrialListComponent', () => {
 
   it('should initialize with favorites status from service', () => {
     expect(component.maxFavoritesReached).toBeFalse();
-    expect(clinicalTrialsService.getFavorites).toHaveBeenCalled();
+    expect(favoritesService.favorites$).toBeDefined();
   });
 
-  describe('toggleAutoUpdate', () => {
-    it('should toggle timer in service when auto-update is toggled', () => {
-      component.autoUpdate = true;
-      component.toggleAutoUpdate();
-      expect(clinicalTrialsService.toggleTimer).toHaveBeenCalledWith(true);
+  describe('loading state', () => {
+    it('should show loading spinner when loading', () => {
+      loadingSubject.next(true);
+      fixture.detectChanges();
 
-      component.autoUpdate = false;
-      component.toggleAutoUpdate();
-      expect(clinicalTrialsService.toggleTimer).toHaveBeenCalledWith(false);
+      const spinner = fixture.debugElement.query(By.css('mat-spinner'));
+      expect(spinner).toBeTruthy();
+    });
+
+    it('should hide loading spinner when not loading', () => {
+      loadingSubject.next(false);
+      fixture.detectChanges();
+
+      const spinner = fixture.debugElement.query(By.css('mat-spinner'));
+      expect(spinner).toBeFalsy();
+    });
+
+    it('should handle error state', () => {
+      component.error = true;
+      fixture.detectChanges();
+
+      const errorMessage = fixture.debugElement.query(By.css('.error-message'));
+      expect(errorMessage.nativeElement.textContent).toContain('Error loading trials');
     });
   });
 
-  describe('toggleFavorite', () => {
-    it('should show error when trying to add favorite beyond limit', () => {
-      // Simulate max favorites reached
+  describe('auto-fetch functionality', () => {
+    it('should start auto-fetch when enabled', fakeAsync(async () => {
+      component.autoFetch = true;
+      component.toggleAutoFetch({ checked: true });
+      tick();
+
+      expect(clinicalTrialsService.toggleTimer).toHaveBeenCalledWith(true);
+      expect(snackBar.open).toHaveBeenCalledWith(
+        'Auto-fetch started. Trials will update every 5 seconds.',
+        '✕',
+        jasmine.any(Object)
+      );
+    }));
+
+    it('should stop auto-fetch when disabled', fakeAsync(async () => {
+      component.autoFetch = false;
+      component.toggleAutoFetch({ checked: false });
+      tick();
+
+      expect(clinicalTrialsService.toggleTimer).toHaveBeenCalledWith(false);
+      expect(snackBar.open).toHaveBeenCalledWith(
+        'Auto-fetch stopped.',
+        '✕',
+        jasmine.any(Object)
+      );
+    }));
+
+    it('should handle error when toggling auto-fetch', fakeAsync(async () => {
+      clinicalTrialsService.toggleTimer.and.returnValue(Promise.reject('Test error'));
+      
+      component.toggleAutoFetch({ checked: true });
+      tick();
+
+      expect(component.autoFetch).toBeFalse();
+      expect(snackBar.open).toHaveBeenCalledWith(
+        'Error toggling auto-fetch. Please try again.',
+        '✕',
+        jasmine.any(Object)
+      );
+    }));
+  });
+
+  describe('favorite functionality', () => {
+    it('should prevent adding favorites when limit reached', () => {
       favoritesSubject.next(Array(10).fill(mockTrial));
       fixture.detectChanges();
 
@@ -107,7 +194,7 @@ describe('TrialListComponent', () => {
       expect(clinicalTrialsService.toggleFavorite).not.toHaveBeenCalled();
     });
 
-    it('should toggle favorite and show success message', () => {
+    it('should show success message when adding favorite', () => {
       const trial = { ...mockTrial, isFavorite: false };
       component.toggleFavorite(trial);
 
@@ -130,6 +217,19 @@ describe('TrialListComponent', () => {
         jasmine.any(Object)
       );
     });
+
+    it('should handle error when toggling favorite', () => {
+      const trial = { ...mockTrial };
+      clinicalTrialsService.toggleFavorite.and.returnValue(throwError(() => new Error('Test error')));
+
+      component.toggleFavorite(trial);
+
+      expect(snackBar.open).toHaveBeenCalledWith(
+        'Error updating favorite status',
+        '✕',
+        jasmine.any(Object)
+      );
+    });
   });
 
   describe('view mode', () => {
@@ -144,55 +244,70 @@ describe('TrialListComponent', () => {
       component.viewMode = 'card';
       expect(component.viewMode).toBe('card');
     });
-  });
 
-  describe('cleanup', () => {
-    it('should stop timer and unsubscribe on destroy', () => {
-      component.ngOnDestroy();
-      expect(clinicalTrialsService.toggleTimer).toHaveBeenCalledWith(false);
+    it('should update view mode through button toggle', () => {
+      const listButton = fixture.debugElement.query(By.css('mat-button-toggle[value="list"]'));
+      listButton.triggerEventHandler('click', null);
+      fixture.detectChanges();
+
+      expect(component.viewMode).toBe('list');
     });
   });
 
-  describe('trial details navigation', () => {
-    it('should navigate to trial details when viewTrialDetails is called', () => {
-      const mockTrial = { ...mockTrial };
-      component.viewTrialDetails(mockTrial);
-      expect(router.navigate).toHaveBeenCalledWith(['/trial', mockTrial.nctId]);
-    });
-  });
-
-  describe('Navigation', () => {
-    it('should navigate to details when clicking on trial card content', () => {
-      const mockTrial = { ...mockTrial };
-      const cardContent = fixture.debugElement.query(By.css('mat-card-content'));
+  describe('navigation', () => {
+    it('should navigate to trial details when clicking on trial card content', () => {
+      const trial = { ...mockTrial };
+      const cardContent = fixture.debugElement.query(By.css('.trial-content'));
       
-      cardContent.triggerEventHandler('click', null);
-      component.viewTrialDetails(mockTrial);
+      cardContent.nativeElement.click();
+      component.viewTrialDetails(trial);
       
-      expect(router.navigate).toHaveBeenCalledWith(['/trial', mockTrial.nctId]);
+      expect(router.navigate).toHaveBeenCalledWith(['/trial', trial.nctId]);
     });
 
-    it('should navigate to details when clicking on trial list content', () => {
+    it('should navigate to trial details when clicking on trial list content', () => {
       component.viewMode = 'list';
       fixture.detectChanges();
       
-      const mockTrial = { ...mockTrial };
+      const trial = { ...mockTrial };
       const listContent = fixture.debugElement.query(By.css('.trial-content'));
       
-      listContent.triggerEventHandler('click', null);
-      component.viewTrialDetails(mockTrial);
+      listContent.nativeElement.click();
+      component.viewTrialDetails(trial);
       
-      expect(router.navigate).toHaveBeenCalledWith(['/trial', mockTrial.nctId]);
+      expect(router.navigate).toHaveBeenCalledWith(['/trial', trial.nctId]);
     });
 
     it('should not navigate when clicking favorite button', () => {
-      const mockTrial = { ...mockTrial };
+      const trial = { ...mockTrial };
       const favoriteButton = fixture.debugElement.query(By.css('button[mat-icon-button]'));
       
       favoriteButton.triggerEventHandler('click', null);
       
       expect(router.navigate).not.toHaveBeenCalled();
-      expect(clinicalTrialsService.toggleFavorite).toHaveBeenCalledWith(mockTrial);
+      expect(clinicalTrialsService.toggleFavorite).toHaveBeenCalledWith(trial);
     });
+  });
+
+  describe('cleanup', () => {
+    it('should stop timer and unsubscribe on destroy', fakeAsync(async () => {
+      const subscriptionSpy = spyOn(component['subscriptions'][0], 'unsubscribe');
+      
+      await component.ngOnDestroy();
+      tick();
+
+      expect(clinicalTrialsService.toggleTimer).toHaveBeenCalledWith(false);
+      expect(subscriptionSpy).toHaveBeenCalled();
+    }));
+
+    it('should handle error when stopping timer on destroy', fakeAsync(async () => {
+      clinicalTrialsService.toggleTimer.and.returnValue(Promise.reject('Test error'));
+      spyOn(console, 'error');
+      
+      await component.ngOnDestroy();
+      tick();
+
+      expect(console.error).toHaveBeenCalledWith('Error stopping timer:', 'Test error');
+    }));
   });
 });

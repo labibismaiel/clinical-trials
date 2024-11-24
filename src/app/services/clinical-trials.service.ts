@@ -71,7 +71,6 @@ export class ClinicalTrialsService {
         this.trialIds = response.studies.map(study => 
           study.protocolSection.identificationModule.nctId
         );
-        console.log(`Fetched ${this.trialIds.length} trial IDs`);
       }
     } catch (error) {
       console.error('Error fetching trial IDs:', error);
@@ -94,7 +93,6 @@ export class ClinicalTrialsService {
   }
 
   private mapApiResponseToTrial(study: any): ClinicalTrial {
-    console.log('Mapping study:', study);
     const trial: ClinicalTrial = {
       nctId: study.protocolSection?.identificationModule?.nctId,
       briefTitle: study.protocolSection?.identificationModule?.briefTitle,
@@ -142,7 +140,6 @@ export class ClinicalTrialsService {
     const selectedId = this.getRandomUnusedId();
     if (!selectedId) return;
 
-    console.log('Fetching trial with ID:', selectedId);
     this.isLoading.next(true);
     this.http.get<ClinicalTrialsApiResponse>(`${this.apiUrl}/${selectedId}`)
       .pipe(
@@ -154,32 +151,19 @@ export class ClinicalTrialsService {
         next: (response) => {
           try {
             const newTrial = this.mapApiResponseToTrial(response);
-            console.log('New trial:', newTrial);
-            
-            // Get current trials and create a new array
             const currentTrials = [...this.trials.value];
-            console.log('Current trials before update:', currentTrials);
 
-            // If we have max trials, remove the oldest one and add new one at the end
             if (currentTrials.length >= this.maxTrials) {
-              console.log('At max trials, removing oldest and adding new one');
-              // Get the trial being removed
               const removedTrial = currentTrials[0];
               if (removedTrial.isFavorite) {
-                console.log('Removing trial from favorites:', removedTrial.nctId);
                 this.favoritesService.removeFromFavorites(removedTrial.nctId);
               }
 
-              // Remove the first (oldest) trial and add new one at the end
               const updatedTrials = [...currentTrials.slice(1), newTrial];
-              console.log('Updated trials:', updatedTrials);
               this.saveTrialsToStorage(updatedTrials);
               this.trials.next(updatedTrials);
             } else {
-              console.log('Adding new trial to the list');
-              // Add to the existing array
               const updatedTrials = [...currentTrials, newTrial];
-              console.log('Updated trials:', updatedTrials);
               this.saveTrialsToStorage(updatedTrials);
               this.trials.next(updatedTrials);
             }
@@ -195,13 +179,10 @@ export class ClinicalTrialsService {
   }
 
   fetchInitialTrials(): void {
-    // If we have trials in localStorage, don't fetch initial trials
     if (this.trials.value.length > 0) {
-      console.log('Using trials from localStorage:', this.trials.value);
       return;
     }
 
-    console.log('No trials in localStorage, fetching from API');
     const params = new HttpParams()
       .set('format', 'json')
       .set('pageSize', String(this.maxTrials));
@@ -217,7 +198,6 @@ export class ClinicalTrialsService {
         next: (response) => {
           try {
             const newTrial = this.mapApiResponseToTrial(response);
-            console.log('Fetched initial trial from API:', newTrial);
             this.saveTrialsToStorage([newTrial]);
             this.trials.next([newTrial]);
           } catch (error) {
@@ -233,30 +213,19 @@ export class ClinicalTrialsService {
 
   async toggleTimer(enabled: boolean): Promise<void> {
     try {
-      console.log('Toggle timer called with enabled:', enabled);
-      
-      // Clean up existing subscription if any
       if (this.timerSubscription) {
-        console.log('Cleaning up existing subscription');
         this.timerSubscription.unsubscribe();
         this.timerSubscription = null;
       }
 
       if (enabled) {
         if (this.trialIds.length === 0) {
-          console.log('Fetching trial IDs');
           await this.fetchTrialIds();
-          console.log('Fetched trial IDs:', this.trialIds.length);
         }
 
-        // Fetch immediately
-        console.log('Initial fetch');
         this.fetchRandomTrials();
 
-        // Start new subscription
-        console.log('Starting timer subscription');
         this.timerSubscription = interval(this.fetchInterval).subscribe(() => {
-          console.log('Timer triggered, fetching new trial');
           this.fetchRandomTrials();
         });
       }
@@ -268,7 +237,7 @@ export class ClinicalTrialsService {
 
   toggleFavorite(trial: ClinicalTrial): Observable<ClinicalTrial> {
     const updatedTrial = { ...trial, isFavorite: !trial.isFavorite };
-    
+
     try {
       if (updatedTrial.isFavorite) {
         this.favoritesService.addToFavorites(updatedTrial);
@@ -276,12 +245,11 @@ export class ClinicalTrialsService {
         this.favoritesService.removeFromFavorites(updatedTrial.nctId);
       }
 
-      // Update the trial in the trials list
       const currentTrials = this.trials.value;
       const updatedTrials = currentTrials.map(t =>
         t.nctId === trial.nctId ? updatedTrial : t
       );
-      this.saveTrialsToStorage(updatedTrials); // Save to storage before updating BehaviorSubject
+      this.saveTrialsToStorage(updatedTrials);
       this.trials.next(updatedTrials);
 
       return of(updatedTrial);
