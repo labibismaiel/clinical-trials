@@ -82,7 +82,7 @@ describe('TrialCardComponent', () => {
 
   it('should navigate to trial details when clicking on trial content', () => {
     const cardContent = fixture.debugElement.query(By.css('mat-card-content'));
-    
+
     cardContent.triggerEventHandler('click', null);
 
     expect(router.navigate).toHaveBeenCalledWith(['/trial', mockTrial.nctId]);

@@ -126,7 +126,6 @@
 
 .trial-list-item {
   display: flex;
-  align-items: center;
   gap: 1rem;
   padding: 1rem;
   cursor: pointer;
@@ -180,7 +179,7 @@
 
   .trial-actions {
     flex-shrink: 0;
-    
+
     .mat-icon {
       transition: color 0.2s ease;
 

@@ -25,6 +25,17 @@ export class ClinicalTrialsService {
     private favoritesService: FavoritesService
   ) {
     this.fetchInitialTrials();
+    // Subscribe to favorites changes
+    this.favoritesService.favorites$.subscribe(favorites => {
+      const favoriteIds = new Set(favorites.map(f => f.nctId));
+      const currentTrials = this.trials.value;
+      const updatedTrials = currentTrials.map(trial => ({
+        ...trial,
+        isFavorite: favoriteIds.has(trial.nctId)
+      }));
+      this.saveTrialsToStorage(updatedTrials);
+      this.trials.next(updatedTrials);
+    });
   }
 
   getTrials(): Observable<ClinicalTrial[]> {
