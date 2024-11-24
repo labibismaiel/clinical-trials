@@ -25,48 +25,81 @@
       <mat-card-header>
         <mat-card-title>{{ trial.briefTitle }}</mat-card-title>
         <button mat-icon-button class="favorite-button" (click)="toggleFavorite()">
-          <mat-icon [color]="trial.isFavorite ? 'warn' : ''">
+          <mat-icon [class.favorite]="trial.isFavorite">
             {{ trial.isFavorite ? 'favorite' : 'favorite_border' }}
           </mat-icon>
         </button>
       </mat-card-header>
 
       <mat-card-content>
+        <!-- Trial Identification -->
         <div class="detail-section">
-          <h3>Official Title</h3>
-          <p>{{ trial.officialTitle }}</p>
+          <h3>Trial Identification</h3>
+          <div class="info-grid">
+            <div class="info-item">
+              <h4>NCT Number</h4>
+              <p>{{ trial.nctId }}</p>
+            </div>
+            <div class="info-item">
+              <h4>Last Updated</h4>
+              <p>{{ trial.lastUpdatePosted || 'Not specified' }}</p>
+            </div>
+          </div>
         </div>
 
-        <div class="trial-info-grid">
-          <div class="info-item">
-            <h4>Status</h4>
-            <p>{{ trial.overallStatus }}</p>
+        <!-- Trial Status -->
+        <div class="detail-section">
+          <h3>Trial Status</h3>
+          <div class="info-grid">
+            <div class="info-item">
+              <h4>Overall Status</h4>
+              <p>{{ trial.overallStatus }}</p>
+            </div>
+            <div class="info-item">
+              <h4>Phase</h4>
+              <p>{{ trial.phase || 'Not specified' }}</p>
+            </div>
+            <div class="info-item">
+              <h4>Study Type</h4>
+              <p>{{ trial.studyType || 'Not specified' }}</p>
+            </div>
+            <div class="info-item">
+              <h4>Condition</h4>
+              <p>{{ trial.condition || 'Not specified' }}</p>
+            </div>
+            <div class="info-item">
+              <h4>Enrollment</h4>
+              <p>{{ trial.enrollment ? trial.enrollment + ' participants' : 'Not specified' }}</p>
+            </div>
           </div>
+        </div>
 
-          <div class="info-item">
-            <h4>Phase</h4>
-            <p>{{ trial.phase || 'Not Specified' }}</p>
-          </div>
+        <!-- Trial Description -->
+        <div class="detail-section" *ngIf="trial.description">
+          <h3>Description</h3>
+          <p class="description">{{ trial.description }}</p>
+        </div>
 
-          <div class="info-item">
-            <h4>Study Type</h4>
-            <p>{{ trial.studyType }}</p>
-          </div>
+        <!-- Interventions -->
+        <div class="detail-section" *ngIf="trial.interventions && trial.interventions.length > 0">
+          <h3>Interventions</h3>
+          <ul class="interventions-list">
+            <li *ngFor="let intervention of trial.interventions">{{ intervention }}</li>
+          </ul>
+        </div>
 
-          <div class="info-item">
-            <h4>Condition</h4>
-            <p>{{ trial.condition || 'Not Specified' }}</p>
-          </div>
+        <!-- Locations -->
+        <div class="detail-section" *ngIf="trial.locations && trial.locations.length > 0">
+          <h3>Study Locations</h3>
+          <ul class="locations-list">
+            <li *ngFor="let location of trial.locations">{{ location }}</li>
+          </ul>
+        </div>
 
-          <div class="info-item">
-            <h4>NCT ID</h4>
-            <p>{{ trial.nctId }}</p>
-          </div>
-
-          <div class="info-item">
-            <h4>Last Updated</h4>
-            <p>{{ trial.lastUpdatePosted | date }}</p>
-          </div>
+        <!-- Official Title -->
+        <div class="detail-section" *ngIf="trial.officialTitle">
+          <h3>Official Title</h3>
+          <p class="official-title">{{ trial.officialTitle }}</p>
         </div>
       </mat-card-content>
     </mat-card>
