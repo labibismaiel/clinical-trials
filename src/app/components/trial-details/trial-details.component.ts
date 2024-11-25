@@ -9,6 +9,8 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { ClinicalTrialsService } from '../../services/clinical-trials.service';
 import { ClinicalTrial } from '../../models/clinical-trial.model';
 import { Subscription } from 'rxjs';
+import { tap, catchError } from 'rxjs/operators';
+import { of } from 'rxjs';
 
 @Component({
   selector: 'app-trial-details',
@@ -54,9 +56,10 @@ export class TrialDetailsComponent implements OnInit, OnDestroy {
     this.subscriptions.forEach(sub => sub.unsubscribe());
   }
 
-  private loadTrial(nctId: string) {
+  public loadTrial(nctId: string) {
     this.loading = true;
     this.error = false;
+    this.trial = null;
 
     this.subscriptions.push(
       this.clinicalTrialsService.getTrialById(nctId).subscribe({
@@ -68,27 +71,43 @@ export class TrialDetailsComponent implements OnInit, OnDestroy {
           console.error('Error loading trial:', error);
           this.error = true;
           this.loading = false;
-          this.showNotification('Error loading trial details', 'error');
+          this.trial = null;
+          this.snackBar.open('Error loading trial details', '✕', {
+            duration: 3000,
+            panelClass: ['error-snackbar']
+          });
         }
       })
     );
   }
 
-  toggleFavorite() {
+  toggleFavorite(): void {
     if (!this.trial) return;
 
-    this.trial.isFavorite = !this.trial.isFavorite;
-    
-    const message = this.trial.isFavorite
-      ? 'Trial added to favorites'
-      : 'Trial removed from favorites';
-      
-    this.snackBar.open(message, 'Close', {
-      duration: 3000,
-      panelClass: ['success-snackbar']
-    });
-    
-    this.clinicalTrialsService.toggleFavorite(this.trial);
+    const currentTrial = this.trial;
+
+    this.clinicalTrialsService.toggleFavorite(currentTrial).pipe(
+      tap((updatedTrial) => {
+        this.trial = updatedTrial;
+        const message = updatedTrial.isFavorite
+          ? 'Trial added to favorites'
+          : 'Trial removed from favorites';
+
+        this.snackBar.open(message, '✕', {
+          duration: 3000,
+          panelClass: ['success-snackbar']
+        });
+      }),
+      catchError((error) => {
+        console.error('Error in toggleFavorite:', error);
+        this.snackBar.open(
+          'Error updating favorite status',
+          '✕',
+          { duration: 3000, panelClass: ['error-snackbar'] }
+        );
+        return of(currentTrial); // Return the original trial on error
+      })
+    ).subscribe();
   }
 
   goBack() {
@@ -98,9 +117,7 @@ export class TrialDetailsComponent implements OnInit, OnDestroy {
   private showNotification(message: string, type: 'success' | 'error' = 'success') {
     this.snackBar.open(message, '✕', {
       duration: 3000,
-      horizontalPosition: 'end',
-      verticalPosition: 'bottom',
-      panelClass: [type === 'error' ? 'error-snackbar' : 'success-snackbar']
+      panelClass: type === 'error' ? ['error-snackbar'] : ['success-snackbar']
     });
   }
 }

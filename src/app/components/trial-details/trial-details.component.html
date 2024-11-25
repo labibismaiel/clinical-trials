@@ -7,14 +7,14 @@
   </div>
 
   <ng-container *ngIf="loading">
-    <div class="loading-container">
+    <div class="loading-container" data-testid="loading-spinner">
       <mat-spinner diameter="40"></mat-spinner>
       <p>Loading trial details...</p>
     </div>
   </ng-container>
 
   <ng-container *ngIf="error">
-    <div class="error-container">
+    <div class="error-container" data-testid="error-message">
       <mat-icon color="warn">error</mat-icon>
       <p>Error loading trial details. Please try again later.</p>
     </div>

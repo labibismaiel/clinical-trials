@@ -58,38 +58,38 @@ export class TrialListComponent implements OnInit, OnDestroy {
     this.subscribeToLoadingState();
   }
 
-  ngOnDestroy(): void {
+  async ngOnDestroy(): Promise<void> {
     this.subscriptions.forEach(sub => sub.unsubscribe());
-    this.clinicalTrialsService.toggleTimer(false).catch(error => {
-      console.error('Error stopping timer:', error);
-    });
+    if (this.autoFetch) {
+      try {
+        await this.clinicalTrialsService.toggleTimer(false);
+      } catch (error) {
+        console.error('Error stopping timer:', error);
+        // Don't rethrow the error since we're in cleanup
+      }
+    }
   }
 
   fetchTrials(): void {
     this.clinicalTrialsService.fetchInitialTrials();
   }
 
-  toggleAutoFetch(event: { checked: boolean }): void {
+  async toggleAutoFetch(event: { checked: boolean }): Promise<void> {
     try {
-      const newState = event.checked;
-      this.autoFetch = newState;
-      this.clinicalTrialsService.toggleTimer(newState);
-      this.showNotification(
-        newState 
-          ? 'Auto-fetch started. Trials will update every 5 seconds.' 
-          : 'Auto-fetch stopped.',
-        'success'
-      );
+      this.autoFetch = event.checked;
+      await this.clinicalTrialsService.toggleTimer(event.checked);
     } catch (error) {
       console.error('Error toggling auto-fetch:', error);
       this.autoFetch = false;
-      this.showNotification('Error toggling auto-fetch. Please try again.', 'error');
+      this.snackBar.open('Error toggling auto-fetch. Please try again.', 'Close', {
+        duration: 3000
+      });
     }
   }
 
   toggleFavorite(trial: ClinicalTrial): void {
     if (!trial.isFavorite && this.maxFavoritesReached) {
-      this.showNotification('Maximum favorites limit reached (10)', 'error');
+      this.snackBar.open('Maximum favorites limit reached (10)', 'Close', { duration: 3000 });
       return;
     }
 
@@ -103,7 +103,7 @@ export class TrialListComponent implements OnInit, OnDestroy {
       },
       error: (error) => {
         console.error('Error toggling favorite:', error);
-        this.showNotification('Error updating favorite status', 'error');
+        this.snackBar.open('Error updating favorite status', 'Close', { duration: 3000 });
       }
     });
   }
@@ -134,7 +134,9 @@ export class TrialListComponent implements OnInit, OnDestroy {
         error: (error) => {
           console.error('Error fetching trials:', error);
           this.error = true;
-          this.showNotification('Error fetching trials. Please try again later.', 'error');
+          this.snackBar.open('Error fetching trials. Please try again later.', 'Close', {
+            duration: 3000
+          });
         }
       })
     );

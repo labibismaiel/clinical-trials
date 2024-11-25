@@ -4,7 +4,6 @@ import { ClinicalTrial } from '../models/clinical-trial.model';
 
 describe('FavoritesService', () => {
   let service: FavoritesService;
-  let localStorageSpy: jasmine.SpyObj<Storage>;
 
   const mockTrial: ClinicalTrial = {
     nctId: 'NCT123',
@@ -19,41 +18,60 @@ describe('FavoritesService', () => {
   };
 
   beforeEach(() => {
-    localStorageSpy = jasmine.createSpyObj('Storage', ['getItem', 'setItem', 'removeItem']);
-    spyOn(window.localStorage, 'getItem').and.callFake(localStorageSpy.getItem);
-    spyOn(window.localStorage, 'setItem').and.callFake(localStorageSpy.setItem);
-    spyOn(window.localStorage, 'removeItem').and.callFake(localStorageSpy.removeItem);
+    const store: { [key: string]: string } = {};
+    
+    // Create base spies for localStorage
+    jasmine.getEnv().allowRespy(true); // Allow respying in the same test
+    
+    spyOn(localStorage, 'getItem').and.callFake((key: string) => {
+      return store[key] ?? null;
+    });
+    
+    spyOn(localStorage, 'setItem').and.callFake((key: string, value: string) => {
+      store[key] = value;
+    });
+    
+    spyOn(localStorage, 'removeItem').and.callFake((key: string) => {
+      delete store[key];
+    });
 
     TestBed.configureTestingModule({
       providers: [FavoritesService]
     });
-    service = TestBed.inject(FavoritesService);
   });
 
   it('should be created', () => {
+    service = TestBed.inject(FavoritesService);
     expect(service).toBeTruthy();
   });
 
   it('should initialize with empty favorites if none in localStorage', () => {
-    localStorageSpy.getItem.and.returnValue(null);
     service = TestBed.inject(FavoritesService);
     
     service.favorites$.subscribe(favorites => {
       expect(favorites).toEqual([]);
+      expect(favorites.length).toBe(0);
     });
   });
 
   it('should initialize with favorites from localStorage', () => {
-    const storedFavorites = [mockTrial];
-    localStorageSpy.getItem.and.returnValue(JSON.stringify(storedFavorites));
+    // Set up localStorage before creating service
+    localStorage.setItem('favoriteTrials', JSON.stringify([mockTrial]));
+
+    // Create service after localStorage is set up
     service = TestBed.inject(FavoritesService);
-    
-    service.favorites$.subscribe(favorites => {
-      expect(favorites).toEqual(storedFavorites);
+
+    let favorites: ClinicalTrial[] = [];
+    service.favorites$.subscribe(favs => {
+      favorites = favs;
     });
+
+    expect(favorites.length).toBe(1);
+    expect(favorites[0]).toEqual(mockTrial);
   });
 
   it('should add a trial to favorites', () => {
+    service = TestBed.inject(FavoritesService);
     service.addToFavorites(mockTrial);
     
     service.favorites$.subscribe(favorites => {
@@ -65,6 +83,7 @@ describe('FavoritesService', () => {
   });
 
   it('should not add duplicate trials to favorites', () => {
+    service = TestBed.inject(FavoritesService);
     service.addToFavorites(mockTrial);
     service.addToFavorites(mockTrial);
     
@@ -74,15 +93,19 @@ describe('FavoritesService', () => {
   });
 
   it('should throw error when adding beyond max favorites limit', () => {
-    const maxFavorites = Array(10).fill({ ...mockTrial });
-    localStorageSpy.getItem.and.returnValue(JSON.stringify(maxFavorites));
+    // Add 10 trials first
     service = TestBed.inject(FavoritesService);
+    for (let i = 0; i < 10; i++) {
+      service.addToFavorites({ ...mockTrial, nctId: `NCT${i}` });
+    }
 
-    expect(() => service.addToFavorites(mockTrial))
+    // Try to add one more
+    expect(() => service.addToFavorites({ ...mockTrial, nctId: 'NCT11' }))
       .toThrowError('Maximum number of favorites (10) reached');
   });
 
   it('should remove a trial from favorites', () => {
+    service = TestBed.inject(FavoritesService);
     service.addToFavorites(mockTrial);
     service.removeFromFavorites(mockTrial.nctId);
     
@@ -94,6 +117,7 @@ describe('FavoritesService', () => {
   });
 
   it('should check if a trial is favorite', () => {
+    service = TestBed.inject(FavoritesService);
     service.addToFavorites(mockTrial);
     expect(service.isFavorite(mockTrial.nctId)).toBeTrue();
     
@@ -102,6 +126,7 @@ describe('FavoritesService', () => {
   });
 
   it('should get favorites count', () => {
+    service = TestBed.inject(FavoritesService);
     expect(service.getFavoritesCount()).toBe(0);
     
     service.addToFavorites(mockTrial);
@@ -109,24 +134,31 @@ describe('FavoritesService', () => {
   });
 
   it('should clear all favorites', () => {
+    service = TestBed.inject(FavoritesService);
     service.addToFavorites(mockTrial);
     service.clearFavorites();
     
     service.favorites$.subscribe(favorites => {
       expect(favorites).toEqual([]);
     });
-    expect(localStorageSpy.removeItem).toHaveBeenCalled();
+    expect(localStorage.removeItem).toHaveBeenCalled();
   });
 
   it('should handle localStorage errors when saving', () => {
-    localStorageSpy.setItem.and.throwError('Storage error');
+    service = TestBed.inject(FavoritesService);
+    
+    // Create new spy that throws error
+    spyOn(localStorage, 'setItem').and.throwError('Storage error');
     
     expect(() => service.addToFavorites(mockTrial))
       .toThrowError('Failed to save favorites');
   });
 
   it('should handle localStorage errors when clearing', () => {
-    localStorageSpy.removeItem.and.throwError('Storage error');
+    service = TestBed.inject(FavoritesService);
+    
+    // Create new spy that throws error
+    spyOn(localStorage, 'removeItem').and.throwError('Storage error');
     
     expect(() => service.clearFavorites())
       .toThrowError('Failed to clear favorites');

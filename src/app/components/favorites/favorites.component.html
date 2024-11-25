@@ -23,7 +23,7 @@
   <!-- Content -->
   <ng-container *ngIf="!loading">
     <!-- Empty State -->
-    <div class="empty-state" *ngIf="favorites.length === 0">
+    <div class="empty-state" data-testid="no-favorites" *ngIf="favorites.length === 0">
       <mat-icon>favorite_border</mat-icon>
       <p>You haven't added any trials to your favorites yet.</p>
     </div>

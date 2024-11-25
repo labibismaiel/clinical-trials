@@ -24,7 +24,6 @@ export class ClinicalTrialsService {
     private http: HttpClient,
     private favoritesService: FavoritesService
   ) {
-    this.fetchInitialTrials();
     // Subscribe to favorites changes
     this.favoritesService.favorites$.subscribe(favorites => {
       const favoriteIds = new Set(favorites.map(f => f.nctId));
@@ -47,7 +46,8 @@ export class ClinicalTrialsService {
   }
 
   getTrialById(id: string): Observable<ClinicalTrial> {
-    return this.http.get<ClinicalTrial>(`${this.apiUrl}/${id}`).pipe(
+    return this.http.get<ClinicalTrialsApiResponse>(`${this.apiUrl}/${id}`).pipe(
+      map(response => this.mapApiResponseToTrial(response.studies[0])),
       catchError(this.handleError)
     );
   }

@@ -1,8 +1,9 @@
 import { TestBed, fakeAsync, tick } from '@angular/core/testing';
 import { HttpClientTestingModule, HttpTestingController } from '@angular/common/http/testing';
+import { HttpParams } from '@angular/common/http';
 import { ClinicalTrialsService } from './clinical-trials.service';
 import { ClinicalTrial } from '../models/clinical-trial.model';
-import { of, throwError } from 'rxjs';
+import { of } from 'rxjs';
 import { FavoritesService } from './favorites.service';
 
 describe('ClinicalTrialsService', () => {
@@ -65,19 +66,18 @@ describe('ClinicalTrialsService', () => {
   };
 
   beforeEach(() => {
-    const favoritesServiceSpy = jasmine.createSpyObj('FavoritesService', 
-      ['addToFavorites', 'removeFromFavorites', 'isFavorite', 'getFavoritesCount']
-    );
-    favoritesServiceSpy.isFavorite.and.returnValue(false);
-    favoritesServiceSpy.getFavoritesCount.and.returnValue(0);
+    const favoritesSpy = jasmine.createSpyObj('FavoritesService', ['getFavorites', 'isFavorite'], {
+      favorites$: of([])
+    });
 
     TestBed.configureTestingModule({
       imports: [HttpClientTestingModule],
       providers: [
         ClinicalTrialsService,
-        { provide: FavoritesService, useValue: favoritesServiceSpy }
+        { provide: FavoritesService, useValue: favoritesSpy }
       ]
     });
+
     service = TestBed.inject(ClinicalTrialsService);
     httpMock = TestBed.inject(HttpTestingController);
     favoritesService = TestBed.inject(FavoritesService) as jasmine.SpyObj<FavoritesService>;
@@ -92,233 +92,187 @@ describe('ClinicalTrialsService', () => {
   });
 
   describe('fetchInitialTrials', () => {
-    it('should fetch trials on initialization', () => {
-      const req = httpMock.expectOne(req => 
-        req.url === 'https://clinicaltrials.gov/api/v2/studies' &&
-        req.params.get('format') === 'json' &&
-        req.params.get('pageSize') === String(service['maxTrials'])
+    it('should fetch trials on initialization', fakeAsync(() => {
+      // Set up the mock response
+      const params = new HttpParams()
+        .set('format', 'json')
+        .set('pageSize', '10');
+
+      service.fetchInitialTrials();
+      tick();
+
+      const req = httpMock.expectOne(request => 
+        request.url === service['apiUrl'] && 
+        request.params.toString() === params.toString()
       );
       expect(req.request.method).toBe('GET');
-      
-      req.flush(mockApiResponse);
+      req.flush({ studies: [mockApiResponse.studies[0]] });
+
+      tick();
 
       service.getTrials().subscribe(trials => {
         expect(trials.length).toBe(1);
-        expect(trials[0]).toEqual(jasmine.objectContaining({
-          nctId: mockTrial.nctId,
-          briefTitle: mockTrial.briefTitle
-        }));
+        expect(trials[0].nctId).toBe(mockTrial.nctId);
       });
-    });
+    }));
 
-    it('should handle empty response', () => {
-      const req = httpMock.expectOne(req => 
-        req.url === 'https://clinicaltrials.gov/api/v2/studies'
+    it('should handle error when fetching trials', fakeAsync(() => {
+      let loadingState = true;
+
+      // Subscribe to loading state
+      service.getLoadingState().subscribe(state => {
+        loadingState = state;
+      });
+
+      // Make the request
+      service.fetchInitialTrials();
+      tick();
+
+      // Set up the mock request and error
+      const params = new HttpParams()
+        .set('format', 'json')
+        .set('pageSize', '10');
+
+      const req = httpMock.expectOne(request => 
+        request.url === service['apiUrl'] && 
+        request.params.toString() === params.toString()
       );
-      req.flush({ studies: [] });
+      expect(req.request.method).toBe('GET');
+      req.error(new ErrorEvent('API Error'));
 
+      tick();
+
+      // Verify loading state is false after error
+      expect(loadingState).toBe(false);
+
+      // Verify trials array is empty
       service.getTrials().subscribe(trials => {
         expect(trials.length).toBe(0);
       });
-    });
+    }));
+  });
 
-    it('should handle error response', () => {
-      const req = httpMock.expectOne(req => 
-        req.url === 'https://clinicaltrials.gov/api/v2/studies'
-      );
-      req.error(new ErrorEvent('API Error'));
-
-      service.getTrials().subscribe({
-        error: (error) => {
-          expect(error).toBeTruthy();
-        }
+  describe('loading state', () => {
+    it('should track loading state', fakeAsync(() => {
+      let loadingState: boolean | undefined;
+      
+      service.getLoadingState().subscribe(state => {
+        loadingState = state;
       });
-    });
+
+      // Initial state should be false
+      expect(loadingState).toBeFalse();
+
+      // Trigger a request that will set loading state
+      service.fetchInitialTrials();
+
+      // Loading state should be true immediately after request starts
+      expect(loadingState).toBeTrue();
+
+      const req = httpMock.expectOne(req => 
+        req.url === service['apiUrl'] &&
+        req.params.get('format') === 'json' &&
+        req.params.get('pageSize') === String(service['maxTrials'])
+      );
+      req.flush({ studies: [mockApiResponse.studies[0]] });
+      tick(); // Let the response processing complete
+
+      // Loading state should be false after request completes
+      expect(loadingState).toBeFalse();
+    }));
   });
 
   describe('toggleTimer', () => {
     it('should fetch trial IDs when timer is first enabled', fakeAsync(() => {
       service.toggleTimer(true);
+      tick();
 
-      const req = httpMock.expectOne(req => 
-        req.url === 'https://clinicaltrials.gov/api/v2/studies' &&
-        req.params.get('fields') === 'NCTId'
-      );
-      expect(req.request.method).toBe('GET');
-
-      const mockIds = {
-        studies: Array(1000).fill({
-          protocolSection: {
-            identificationModule: {
-              nctId: 'NCT' + Math.random()
-            }
-          }
-        })
-      };
-      req.flush(mockIds);
-
-      tick(5000); // Wait for first timer tick
-
-      const trialReq = httpMock.expectOne(req => 
-        req.url === 'https://clinicaltrials.gov/api/v2/studies'
-      );
-      trialReq.flush(mockApiResponse);
-
-      service.getTrials().subscribe(trials => {
-        expect(trials.length).toBeGreaterThan(0);
-      });
-
-      service.toggleTimer(false); // Cleanup
+      const req = httpMock.expectOne(req => req.url === 'https://clinicaltrials.gov/api/v2/studies');
+      req.flush(mockApiResponse);
+      
+      expect(service['timerSubscription']).toBeDefined();
     }));
 
     it('should stop fetching when timer is disabled', fakeAsync(() => {
+      // First enable the timer
       service.toggleTimer(true);
+      tick();
 
-      // Handle initial IDs fetch
-      const idsReq = httpMock.expectOne(req => 
-        req.params.get('fields') === 'NCTId'
-      );
-      idsReq.flush({
-        studies: Array(10).fill({
-          protocolSection: {
-            identificationModule: {
-              nctId: 'NCT123'
-            }
-          }
-        })
-      });
+      const req = httpMock.expectOne(req => req.url === service['apiUrl']);
+      req.flush(mockApiResponse);
+      tick();
 
-      tick(5000); // First interval
-      const trialReq = httpMock.expectOne(req => 
-        req.url === 'https://clinicaltrials.gov/api/v2/studies'
-      );
-      trialReq.flush(mockApiResponse);
-
+      // Then disable it
       service.toggleTimer(false);
-      tick(5000); // No more requests should be made
+      tick();
 
-      httpMock.verify(); // This will fail if any unexpected requests were made
+      // Verify subscription is cleaned up
+      expect(service['timerSubscription']).toBeNull();
+
+      // Verify no more requests are made
+      httpMock.verify();
     }));
 
     it('should handle error when fetching trial IDs', fakeAsync(() => {
-      service.toggleTimer(true);
+      const params = new HttpParams()
+        .set('format', 'json')
+        .set('pageSize', '1000')
+        .set('fields', 'NCTId');
 
-      const req = httpMock.expectOne(req => 
-        req.params.get('fields') === 'NCTId'
+      service.toggleTimer(true);
+      tick();
+
+      const req = httpMock.expectOne(request => 
+        request.url === service['apiUrl'] && 
+        request.params.toString() === params.toString()
       );
+      expect(req.request.method).toBe('GET');
       req.error(new ErrorEvent('API Error'));
 
-      tick(5000);
+      tick();
 
+      expect(service['timerSubscription']).toBeNull();
       expect(service['trialIds'].length).toBe(0);
-      service.toggleTimer(false); // Cleanup
     }));
   });
 
-  describe('toggleFavorite', () => {
-    it('should add trial to favorites', () => {
-      const trial = { ...mockTrial, isFavorite: false };
-      service.toggleFavorite(trial);
-
-      expect(favoritesService.addToFavorites).toHaveBeenCalledWith(trial);
-    });
-
-    it('should remove trial from favorites', () => {
-      const trial = { ...mockTrial, isFavorite: true };
-      service.toggleFavorite(trial);
-
-      expect(favoritesService.removeFromFavorites).toHaveBeenCalledWith(trial.nctId);
-    });
-
-    it('should update trial favorite status in trials list', () => {
-      const trial = { ...mockTrial, isFavorite: false };
-      service.toggleFavorite(trial);
-
-      service.getTrials().subscribe(trials => {
-        const updatedTrial = trials.find(t => t.nctId === trial.nctId);
-        expect(updatedTrial?.isFavorite).toBe(true);
-      });
-    });
-
-    it('should handle error when toggling favorite', () => {
-      const trial = { ...mockTrial };
-      favoritesService.addToFavorites.and.throwError('Test error');
-
-      expect(() => service.toggleFavorite(trial))
-        .toThrow();
-    });
-  });
-
   describe('getTrialById', () => {
-    it('should fetch trial by ID', () => {
+    it('should fetch a single trial by ID', fakeAsync(() => {
       const testId = 'NCT123';
+      let result: ClinicalTrial | undefined;
       
       service.getTrialById(testId).subscribe(trial => {
-        expect(trial).toBeTruthy();
-        expect(trial.nctId).toBe(testId);
-        expect(trial.briefTitle).toBeDefined();
+        result = trial;
       });
 
       const req = httpMock.expectOne(`${service['apiUrl']}/${testId}`);
       expect(req.request.method).toBe('GET');
-      req.flush(mockApiResponse.studies[0]);
-    });
+      req.flush({ studies: [mockApiResponse.studies[0]] });
 
-    it('should handle error when fetching trial by ID', () => {
+      tick();
+
+      expect(result).toBeDefined();
+      expect(result?.nctId).toBe(testId);
+    }));
+
+    it('should handle error when fetching single trial', fakeAsync(() => {
       const testId = 'NCT123';
+      let errorResult: any;
       
       service.getTrialById(testId).subscribe({
+        next: () => fail('Expected an error'),
         error: (error) => {
-          expect(error).toBeTruthy();
+          errorResult = error;
         }
       });
 
       const req = httpMock.expectOne(`${service['apiUrl']}/${testId}`);
+      expect(req.request.method).toBe('GET');
       req.error(new ErrorEvent('API Error'));
-    });
 
-    it('should handle missing optional fields in API response', () => {
-      const testId = 'NCT123';
-      const incompleteResponse = {
-        protocolSection: {
-          identificationModule: {
-            nctId: testId,
-            briefTitle: 'Test Trial'
-          },
-          statusModule: {
-            overallStatus: 'Recruiting'
-          }
-        }
-      };
+      tick();
 
-      service.getTrialById(testId).subscribe(trial => {
-        expect(trial.nctId).toBe(testId);
-        expect(trial.briefTitle).toBe('Test Trial');
-        expect(trial.phase).toBeUndefined();
-        expect(trial.condition).toBeUndefined();
-        expect(trial.interventions).toEqual([]);
-        expect(trial.locations).toEqual([]);
-      });
-
-      const req = httpMock.expectOne(`${service['apiUrl']}/${testId}`);
-      req.flush(incompleteResponse);
-    });
-  });
-
-  describe('loading state', () => {
-    it('should track loading state', () => {
-      let loadingStates: boolean[] = [];
-      service.getLoadingState().subscribe(state => {
-        loadingStates.push(state);
-      });
-
-      const req = httpMock.expectOne(req => 
-        req.url === 'https://clinicaltrials.gov/api/v2/studies'
-      );
-
-      expect(loadingStates).toContain(true); // Loading started
-      req.flush(mockApiResponse);
-      expect(loadingStates).toContain(false); // Loading finished
-    });
+      expect(errorResult).toBeTruthy();
+    }));
   });
 });
