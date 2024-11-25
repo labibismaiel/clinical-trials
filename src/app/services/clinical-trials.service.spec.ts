@@ -117,38 +117,41 @@ describe('ClinicalTrialsService', () => {
     }));
 
     it('should handle error when fetching trials', fakeAsync(() => {
-      let loadingState = true;
+      let loadingState = false;
+      let trials: ClinicalTrial[] = [];
 
-      // Subscribe to loading state
+      // Subscribe to loading state and trials
       service.getLoadingState().subscribe(state => {
         loadingState = state;
+      });
+      service.getTrials().subscribe(t => {
+        trials = t;
       });
 
       // Make the request
       service.fetchInitialTrials();
-      tick();
 
-      // Set up the mock request and error
-      const params = new HttpParams()
-        .set('format', 'json')
-        .set('pageSize', '10');
+      // Verify loading state is true during request
+      expect(loadingState).toBeTrue();
 
+      // Get the pending request
       const req = httpMock.expectOne(request => 
         request.url === service['apiUrl'] && 
-        request.params.toString() === params.toString()
+        request.params.get('format') === 'json' &&
+        request.params.get('pageSize') === String(service['maxTrials'])
       );
       expect(req.request.method).toBe('GET');
-      req.error(new ErrorEvent('API Error'));
 
+      // Simulate error response
+      req.error(new ErrorEvent('API Error'));
       tick();
 
-      // Verify loading state is false after error
-      expect(loadingState).toBe(false);
+      // Verify loading state is false and trials are empty after error
+      expect(loadingState).toBeFalse();
+      expect(trials.length).toBe(0);
 
-      // Verify trials array is empty
-      service.getTrials().subscribe(trials => {
-        expect(trials.length).toBe(0);
-      });
+      // Verify no pending requests
+      httpMock.verify();
     }));
   });
 

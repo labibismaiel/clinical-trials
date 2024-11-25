@@ -200,25 +200,29 @@ export class ClinicalTrialsService {
     this.http.get<ClinicalTrialsApiResponse>(this.apiUrl, { params })
       .pipe(
         retry(3),
-        catchError(this.handleError),
-        tap(() => this.isLoading.next(false))
-      )
-      .subscribe({
-        next: (response) => {
-          if (response?.studies && response.studies.length > 0) {
-            const trial = this.mapApiResponseToTrial(response.studies[0]);
-            this.trials.next([trial]);
-            this.saveTrialsToStorage([trial]);
-          } else {
-            console.error('No studies found in the API response');
-            this.trials.next([]);
-          }
-        },
-        error: (error) => {
+        catchError((error) => {
           console.error('Error fetching initial trials:', error);
           this.isLoading.next(false);
           this.trials.next([]);
-        }
+          return throwError(() => error);
+        })
+      )
+      .subscribe({
+        next: (response) => {
+          try {
+            if (response?.studies && response.studies.length > 0) {
+              const trial = this.mapApiResponseToTrial(response.studies[0]);
+              this.trials.next([trial]);
+              this.saveTrialsToStorage([trial]);
+            } else {
+              console.error('No studies found in the API response');
+              this.trials.next([]);
+            }
+          } finally {
+            this.isLoading.next(false);
+          }
+        },
+        error: () => {} // Error already handled in catchError
       });
   }
 
