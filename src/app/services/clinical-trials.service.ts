@@ -14,7 +14,7 @@ export class ClinicalTrialsService {
   private readonly maxTrials = 10;
   private readonly fetchInterval = 5000; // 5 seconds
   private readonly STORAGE_KEY = 'clinical_trials';
-  private trials = new BehaviorSubject<ClinicalTrial[]>(this.loadTrialsFromStorage());
+  private trials = new BehaviorSubject<ClinicalTrial[]>([]);
   private timerSubscription: any;
   private trialIds: string[] = [];
   private usedIds: Set<string> = new Set();
@@ -79,7 +79,7 @@ export class ClinicalTrialsService {
         ).toPromise();
 
       if (response?.studies) {
-        this.trialIds = response.studies.map(study => 
+        this.trialIds = response.studies.map(study =>
           study.protocolSection.identificationModule.nctId
         );
       }
@@ -148,6 +148,8 @@ export class ClinicalTrialsService {
   }
 
   fetchRandomTrials(): void {
+    if (this.trialIds.length === 0) return;
+
     const selectedId = this.getRandomUnusedId();
     if (!selectedId) return;
 
@@ -161,7 +163,7 @@ export class ClinicalTrialsService {
       .subscribe({
         next: (response) => {
           try {
-            const newTrial = this.mapApiResponseToTrial(response);
+            const newTrial = this.mapApiResponseToTrial(response.studies[0]);
             const currentTrials = [...this.trials.value];
 
             if (currentTrials.length >= this.maxTrials) {
@@ -190,10 +192,6 @@ export class ClinicalTrialsService {
   }
 
   fetchInitialTrials(): void {
-    if (this.trials.value.length > 0) {
-      return;
-    }
-
     const params = new HttpParams()
       .set('format', 'json')
       .set('pageSize', String(this.maxTrials));
@@ -207,29 +205,31 @@ export class ClinicalTrialsService {
       )
       .subscribe({
         next: (response) => {
-          try {
-            const newTrial = this.mapApiResponseToTrial(response);
-            this.saveTrialsToStorage([newTrial]);
-            this.trials.next([newTrial]);
-          } catch (error) {
-            console.error('Error processing response:', error);
+          if (response?.studies && response.studies.length > 0) {
+            const trial = this.mapApiResponseToTrial(response.studies[0]);
+            this.trials.next([trial]);
+            this.saveTrialsToStorage([trial]);
+          } else {
+            console.error('No studies found in the API response');
+            this.trials.next([]);
           }
         },
         error: (error) => {
           console.error('Error fetching initial trials:', error);
           this.isLoading.next(false);
+          this.trials.next([]);
         }
       });
   }
 
   async toggleTimer(enabled: boolean): Promise<void> {
-    try {
-      if (this.timerSubscription) {
-        this.timerSubscription.unsubscribe();
-        this.timerSubscription = null;
-      }
+    if (this.timerSubscription) {
+      this.timerSubscription.unsubscribe();
+      this.timerSubscription = null;
+    }
 
-      if (enabled) {
+    if (enabled) {
+      try {
         if (this.trialIds.length === 0) {
           await this.fetchTrialIds();
         }
@@ -239,10 +239,11 @@ export class ClinicalTrialsService {
         this.timerSubscription = interval(this.fetchInterval).subscribe(() => {
           this.fetchRandomTrials();
         });
+      } catch (error) {
+        console.error('Error toggling timer:', error);
+        this.timerSubscription = null;
+        throw error;
       }
-    } catch (error) {
-      console.error('Error toggling timer:', error);
-      throw error;
     }
   }
 

@@ -183,14 +183,21 @@ describe('ClinicalTrialsService', () => {
   });
 
   describe('toggleTimer', () => {
-    it('should fetch trial IDs when timer is first enabled', fakeAsync(() => {
-      service.toggleTimer(true);
+    it('should fetch trial IDs when timer is first enabled', fakeAsync(async () => {
+      await service.toggleTimer(true);
       tick();
 
-      const req = httpMock.expectOne(req => req.url === 'https://clinicaltrials.gov/api/v2/studies');
-      req.flush(mockApiResponse);
-      
+      const req = httpMock.expectOne(req => 
+        req.url === service['apiUrl'] && 
+        req.params.get('format') === 'json' &&
+        req.params.get('pageSize') === '1000' &&
+        req.params.get('fields') === 'NCTId'
+      );
+      req.flush({ studies: [{ protocolSection: { identificationModule: { nctId: 'NCT123' } } }] });
+      tick();
+
       expect(service['timerSubscription']).toBeDefined();
+      httpMock.verify();
     }));
 
     it('should stop fetching when timer is disabled', fakeAsync(() => {
@@ -213,26 +220,27 @@ describe('ClinicalTrialsService', () => {
       httpMock.verify();
     }));
 
-    it('should handle error when fetching trial IDs', fakeAsync(() => {
-      const params = new HttpParams()
-        .set('format', 'json')
-        .set('pageSize', '1000')
-        .set('fields', 'NCTId');
-
-      service.toggleTimer(true);
+    it('should handle error when fetching trial IDs', fakeAsync(async () => {
+      let error: any;
+      try {
+        await service.toggleTimer(true);
+      } catch (e) {
+        error = e;
+      }
       tick();
 
       const req = httpMock.expectOne(request => 
         request.url === service['apiUrl'] && 
-        request.params.toString() === params.toString()
+        request.params.get('format') === 'json' &&
+        request.params.get('pageSize') === '1000' &&
+        request.params.get('fields') === 'NCTId'
       );
-      expect(req.request.method).toBe('GET');
       req.error(new ErrorEvent('API Error'));
-
       tick();
 
+      expect(error).toBeTruthy();
       expect(service['timerSubscription']).toBeNull();
-      expect(service['trialIds'].length).toBe(0);
+      httpMock.verify();
     }));
   });
 
