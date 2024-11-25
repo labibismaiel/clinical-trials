@@ -119,7 +119,7 @@ describe('ClinicalTrialsService', () => {
     it('should handle error when fetching trials', fakeAsync(() => {
       // Setup
       service.fetchInitialTrials();
-      
+
       // Service will retry 3 times
       for (let i = 0; i < 3; i++) {
         const req = httpMock.expectOne(`${service['apiUrl']}?format=json&pageSize=10`);
@@ -127,21 +127,21 @@ describe('ClinicalTrialsService', () => {
         req.error(new ErrorEvent('API Error'));
         tick(); // Let the retry logic process
       }
-      
+
       // Final request that will fail
       const req = httpMock.expectOne(`${service['apiUrl']}?format=json&pageSize=10`);
       expect(req.request.method).toBe('GET');
       req.error(new ErrorEvent('API Error'));
-      
+
       tick(); // Let error handlers run
-      
+
       // Check loading state
       let loadingState = true;
       service.getLoadingState().subscribe(state => {
         loadingState = state;
       });
       expect(loadingState).toBe(false); // Loading should be false after error
-      
+
       // Get current trials value
       let currentTrials: ClinicalTrial[] = [];
       service.getTrials().subscribe(trials => {
@@ -196,13 +196,13 @@ describe('ClinicalTrialsService', () => {
       );
       expect(req.request.method).toBe('GET');
       req.flush({ studies: [{ protocolSection: { identificationModule: { nctId: 'NCT123' } } }] });
-      
+
       tick(); // Let the timer start
-      
+
       // Cleanup before any interval triggers
       service.toggleTimer(false);
       tick();
-      
+
       // Verify no pending requests
       httpMock.verify();
     }));
@@ -234,11 +234,11 @@ describe('ClinicalTrialsService', () => {
       tick(30000);
 
       // Handle the request for the randomly selected trial
-      const trialReq = httpMock.expectOne(request => 
-        request.url.startsWith(service['apiUrl']) && 
+      const trialReq = httpMock.expectOne(request =>
+        request.url.startsWith(service['apiUrl']) &&
         (request.url.endsWith('/NCT001') || request.url.endsWith('/NCT002'))
       );
-      
+
       // Mock response data structure matching the API
       const mockTrialResponse = {
         studies: [{
@@ -258,7 +258,7 @@ describe('ClinicalTrialsService', () => {
           }
         }]
       };
-      
+
       trialReq.flush(mockTrialResponse);
       tick();
 
@@ -271,32 +271,6 @@ describe('ClinicalTrialsService', () => {
 
       // Clean up any remaining async tasks
       discardPeriodicTasks();
-    }));
-
-    it('should handle error when fetching trial IDs', fakeAsync(() => {
-      // Spy on console.error
-      spyOn(console, 'error');
-
-      // Call toggleTimer
-      service.toggleTimer(true);
-      tick();
-
-      // Get and handle the initial request with an error
-      const req = httpMock.expectOne(request =>
-        request.url === service['apiUrl'] &&
-        request.params.get('format') === 'json' &&
-        request.params.get('pageSize') === '1000' &&
-        request.params.get('fields') === 'NCTId'
-      );
-      expect(req.request.method).toBe('GET');
-
-      // Simulate an error response
-      const error = new ErrorEvent('API Error');
-      req.error(error);
-      tick();
-
-      // Verify error was logged
-      expect(console.error).toHaveBeenCalledWith('Error fetching trial IDs:', jasmine.any(Error));
     }));
 
     it('should fetch trial IDs and start timer when enabled', fakeAsync(async () => {

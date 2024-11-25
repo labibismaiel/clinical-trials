@@ -118,6 +118,7 @@ describe('TrialListComponent', () => {
     component = fixture.componentInstance;
     component.loading = false;
     component.error = false;
+    component.trials.set([mockTrial]);
     fixture.detectChanges();
   });
 
@@ -182,7 +183,7 @@ describe('TrialListComponent', () => {
 
   describe('favorite functionality', () => {
     beforeEach(() => {
-      component.trials = [mockTrial];
+      component.trials.set([mockTrial]);
       fixture.detectChanges();
     });
 
@@ -267,7 +268,7 @@ describe('TrialListComponent', () => {
         isFavorite: false
       };
 
-      component.trials = [mockTrial];
+      component.trials.set([mockTrial]);;
       component.loading = false;
       component.error = false;
       component.viewMode = 'card';

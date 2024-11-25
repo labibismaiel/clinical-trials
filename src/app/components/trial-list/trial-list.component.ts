@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy } from '@angular/core';
+import { Component, OnInit, OnDestroy, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
 import { FormsModule } from '@angular/forms';
@@ -36,7 +36,7 @@ import { Subscription, merge, EMPTY, catchError, tap } from 'rxjs';
   ]
 })
 export class TrialListComponent implements OnInit, OnDestroy {
-  trials: ClinicalTrial[] = [];
+  trials = signal<ClinicalTrial[]>([]);
   loading = false;
   error = false;
   autoFetch = false;
@@ -52,11 +52,9 @@ export class TrialListComponent implements OnInit, OnDestroy {
   ) {}
 
   ngOnInit(): void {
-    this.subscriptions.push(
-      this.clinicalTrialsService.getTrials().subscribe(trials => {
-        this.trials = trials;
-      })
-    );
+    this.clinicalTrialsService.getTrials().subscribe(trials => {
+      this.trials.set(trials);
+    });
 
     this.subscriptions.push(
       this.clinicalTrialsService.getLoadingState().subscribe(loading => {
@@ -72,7 +70,7 @@ export class TrialListComponent implements OnInit, OnDestroy {
 
     // Initialize view mode
     this.viewMode = 'card';
-    
+
     // Fetch initial trials
     this.clinicalTrialsService.fetchInitialTrials();
   }
@@ -108,7 +106,6 @@ export class TrialListComponent implements OnInit, OnDestroy {
   }
 
   toggleFavorite(trial: ClinicalTrial): void {
-    // Check for max favorites before attempting to favorite
     if (!trial.isFavorite && this.maxFavoritesReached) {
       this.snackBar.open('Maximum favorites limit reached (10)', 'Close', { duration: 3000 });
       return;
@@ -125,10 +122,11 @@ export class TrialListComponent implements OnInit, OnDestroy {
       )
       .subscribe({
         next: (updatedTrial) => {
-          const index = this.trials.findIndex(t => t.nctId === updatedTrial.nctId);
+          const index = this.trials().findIndex((t: ClinicalTrial) => t.nctId === updatedTrial.nctId);
           if (index !== -1) {
-            this.trials[index] = updatedTrial;
-            this.trials = [...this.trials];
+            const newTrials = [...this.trials()];
+            newTrials[index] = updatedTrial;
+            this.trials.set(newTrials);
           }
         },
         error: () => {} // Handle error in tap operator
@@ -150,5 +148,9 @@ export class TrialListComponent implements OnInit, OnDestroy {
       verticalPosition: 'bottom',
       panelClass: type === 'error' ? ['error-snackbar'] : ['success-snackbar']
     });
+  }
+
+  navigateToTrial(nctId: string): void {
+    this.router.navigate(['/trial', nctId]);
   }
 }

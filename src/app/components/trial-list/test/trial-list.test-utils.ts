@@ -2,20 +2,26 @@ import { Component, EventEmitter, Input, Output } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { BehaviorSubject } from 'rxjs';
 import { ClinicalTrial } from '../../../models/clinical-trial.model';
+import { Router } from '@angular/router';
 
 @Component({
   selector: 'app-trial-card',
-  template: '',
-  standalone: true,
-  imports: [CommonModule]
+  template: `
+    <div class="trial-card" (click)="onTrialClick()">
+      Mock Trial Card: {{trial?.briefTitle}}
+    </div>
+  `
 })
 export class MockTrialCardComponent {
   @Input() trial!: ClinicalTrial;
-  @Input() isFavorite!: boolean;
   @Input() viewMode: 'card' | 'list' = 'card';
   @Input() maxFavoritesReached = false;
-  @Output() favoriteToggled = new EventEmitter<ClinicalTrial>();
   @Output() trialClicked = new EventEmitter<ClinicalTrial>();
+  @Output() favoriteToggled = new EventEmitter<ClinicalTrial>();
+
+  onTrialClick(): void {
+    this.trialClicked.emit(this.trial);
+  }
 }
 
 export const mockTrial: ClinicalTrial = {

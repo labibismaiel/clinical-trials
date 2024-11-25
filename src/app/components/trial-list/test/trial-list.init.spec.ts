@@ -1,4 +1,4 @@
-import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { ComponentFixture, TestBed, fakeAsync, tick } from '@angular/core/testing';
 import { NoopAnimationsModule } from '@angular/platform-browser/animations';
 import { RouterTestingModule } from '@angular/router/testing';
 import { MatSnackBar } from '@angular/material/snack-bar';
@@ -76,11 +76,18 @@ describe('TrialListComponent Initialization', () => {
     expect(clinicalTrialsService.fetchInitialTrials).toHaveBeenCalled();
   });
 
-  it('should subscribe to trials', () => {
-    const newTrials = [mockTrial, { ...mockTrial, nctId: 'NCT456' }];
-    trialsSubject.next(newTrials);
-    expect(component.trials).toEqual(newTrials);
-  });
+  it('should subscribe to trials', fakeAsync(() => {
+    const trials = [
+      mockTrial,
+      { ...mockTrial, nctId: 'NCT456' }
+    ];
+
+    trialsSubject.next(trials);
+    tick();
+    fixture.detectChanges();
+
+    expect(component.trials()).toEqual(trials);
+  }));
 
   it('should subscribe to loading state', () => {
     loadingSubject.next(true);

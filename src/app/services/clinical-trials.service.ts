@@ -235,18 +235,19 @@ export class ClinicalTrialsService {
           .set('fields', 'NCTId');
 
         const response = await firstValueFrom(
-          this.http.get<ClinicalTrialsApiResponse>(this.apiUrl, { params })
-            .pipe(
-              retry(3),
-              catchError((error) => {
-                console.error('Error fetching trial IDs:', error);
-                throw error; // Re-throw the error to be caught by the outer catch
-              })
-            )
+          this.http.get<ClinicalTrialsApiResponse>(this.apiUrl, { params }).pipe(
+            retry(3),
+            catchError((error) => {
+              console.error('Error fetching trial IDs:', error);
+              return throwError(() => error);
+            })
+          )
         );
 
         if (response?.studies) {
-          this.trialIds = response.studies.map(study => study.protocolSection.identificationModule.nctId);
+          this.trialIds = response.studies.map(study =>
+            study.protocolSection.identificationModule.nctId
+          );
           this.timerSubscription = interval(30000)
             .pipe(
               tap(() => this.fetchRandomTrials())
@@ -255,7 +256,7 @@ export class ClinicalTrialsService {
         }
       } catch (error) {
         console.error('Error fetching trial IDs:', error);
-        throw error; // Re-throw the error to propagate it to the component
+        throw error;
       }
     }
   }

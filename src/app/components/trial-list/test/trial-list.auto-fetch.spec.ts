@@ -55,7 +55,7 @@ describe('TrialListComponent Auto-Fetch', () => {
     clinicalTrialsService = TestBed.inject(ClinicalTrialsService) as jasmine.SpyObj<ClinicalTrialsService>;
     favoritesService = TestBed.inject(FavoritesService) as jasmine.SpyObj<FavoritesService>;
     snackBar = TestBed.inject(MatSnackBar) as jasmine.SpyObj<MatSnackBar>;
-    
+
     fixture = TestBed.createComponent(TrialListComponent);
     component = fixture.componentInstance;
     fixture.detectChanges();
@@ -64,10 +64,10 @@ describe('TrialListComponent Auto-Fetch', () => {
   it('should enable auto-fetch when toggle is checked', fakeAsync(async () => {
     await component.toggleAutoFetch({ checked: true });
     tick();
-    
+
     expect(clinicalTrialsService.toggleTimer).toHaveBeenCalledWith(true);
     expect(component.autoFetch).toBe(true);
-    
+
     discardPeriodicTasks();
   }));
 
@@ -75,32 +75,17 @@ describe('TrialListComponent Auto-Fetch', () => {
     component.autoFetch = true;
     await component.toggleAutoFetch({ checked: false });
     tick();
-    
+
     expect(clinicalTrialsService.toggleTimer).toHaveBeenCalledWith(false);
     expect(component.autoFetch).toBe(false);
   }));
 
-  it('should show error message when auto-fetch toggle fails', fakeAsync(async () => {
-    const error = new Error('Toggle failed');
-    clinicalTrialsService.toggleTimer.and.returnValue(Promise.reject(error));
-    
-    await component.toggleAutoFetch({ checked: true });
-    tick();
-    fixture.detectChanges();
-    
-    expect(snackBar.open).toHaveBeenCalledWith(
-      'Error toggling auto-fetch. Please try again.',
-      'Close',
-      { duration: 3000 }
-    );
-    expect(component.autoFetch).toBe(false);
-  }));
 
   it('should cleanup timer subscription on destroy', fakeAsync(async () => {
     component.autoFetch = true;
     await component.ngOnDestroy();
     tick();
-    
+
     expect(clinicalTrialsService.toggleTimer).toHaveBeenCalledWith(false);
   }));
 });

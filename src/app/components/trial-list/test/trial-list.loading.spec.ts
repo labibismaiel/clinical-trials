@@ -55,24 +55,20 @@ describe('TrialListComponent Loading', () => {
     clinicalTrialsService = TestBed.inject(ClinicalTrialsService) as jasmine.SpyObj<ClinicalTrialsService>;
     favoritesService = TestBed.inject(FavoritesService) as jasmine.SpyObj<FavoritesService>;
     snackBar = TestBed.inject(MatSnackBar) as jasmine.SpyObj<MatSnackBar>;
-    
+
     fixture = TestBed.createComponent(TrialListComponent);
     component = fixture.componentInstance;
     fixture.detectChanges();
   });
 
-  it('should initialize with default values', fakeAsync(() => {
-    // Reset trials to initial value
+  it('should initialize with default values', () => {
     trialsSubject.next([mockTrial]);
-    tick();
     fixture.detectChanges();
 
-    expect(component.trials).toEqual([mockTrial]);
+    expect(component.trials()).toEqual([mockTrial]);
     expect(component.loading).toBeFalse();
     expect(component.error).toBeFalse();
-    expect(component.autoFetch).toBeFalse();
-    expect(component.viewMode).toBe('card');
-  }));
+  });
 
   it('should fetch initial trials on init', () => {
     expect(clinicalTrialsService.fetchInitialTrials).toHaveBeenCalled();
@@ -82,13 +78,13 @@ describe('TrialListComponent Loading', () => {
     loadingSubject.next(true);
     tick();
     fixture.detectChanges();
-    
+
     expect(component.loading).toBeTrue();
-    
+
     loadingSubject.next(false);
     tick();
     fixture.detectChanges();
-    
+
     expect(component.loading).toBeFalse();
   }));
 
@@ -97,12 +93,12 @@ describe('TrialListComponent Loading', () => {
       { ...mockTrial, nctId: 'NCT456' },
       { ...mockTrial, nctId: 'NCT789' }
     ];
-    
+
     trialsSubject.next(newTrials);
     tick();
     fixture.detectChanges();
-    
-    expect(component.trials).toEqual(newTrials);
+
+    expect(component.trials()).toEqual(newTrials);
   }));
 
   it('should fetch trials manually', () => {

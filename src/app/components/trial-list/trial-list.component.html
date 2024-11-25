@@ -10,9 +10,9 @@
       </mat-slide-toggle>
     </div>
 
-    <mat-button-toggle-group 
-      color="primary" 
-      [(ngModel)]="viewMode" 
+    <mat-button-toggle-group
+      color="primary"
+      [(ngModel)]="viewMode"
       aria-label="View Mode">
       <mat-button-toggle value="card">
         <mat-icon>grid_view</mat-icon>
@@ -42,7 +42,7 @@
   <!-- Content -->
   <ng-container *ngIf="!loading && !error">
     <!-- Empty State -->
-    <div class="empty-state" *ngIf="trials.length === 0">
+    <div class="empty-state" *ngIf="trials().length === 0">
       <mat-icon>search_off</mat-icon>
       <p>No clinical trials found</p>
       <button mat-raised-button color="primary" (click)="fetchTrials()">
@@ -52,26 +52,26 @@
     </div>
 
     <!-- Card View -->
-    <div class="trials-grid" *ngIf="trials.length > 0 && viewMode === 'card'">
+    <div class="trials-grid" *ngIf="trials().length > 0 && viewMode === 'card'">
       <app-trial-card
-        *ngFor="let trial of trials; trackBy: trackByTrialId"
+        *ngFor="let trial of trials(); trackBy: trackByTrialId"
         [trial]="trial"
         [viewMode]="'card'"
         [maxFavoritesReached]="maxFavoritesReached"
-        (favoriteToggled)="toggleFavorite($event)"
-        (trialClicked)="viewTrialDetails($event)">
+        (favoriteToggled)="toggleFavorite(trial)"
+        (trialClicked)="viewTrialDetails(trial)">
       </app-trial-card>
     </div>
 
     <!-- List View -->
-    <div class="trials-list" *ngIf="trials.length > 0 && viewMode === 'list'">
+    <div class="trials-list" *ngIf="trials().length > 0 && viewMode === 'list'">
       <app-trial-card
-        *ngFor="let trial of trials; trackBy: trackByTrialId"
+        *ngFor="let trial of trials(); trackBy: trackByTrialId"
         [trial]="trial"
         [viewMode]="'list'"
         [maxFavoritesReached]="maxFavoritesReached"
-        (favoriteToggled)="toggleFavorite($event)"
-        (trialClicked)="viewTrialDetails($event)">
+        (favoriteToggled)="toggleFavorite(trial)"
+        (trialClicked)="viewTrialDetails(trial)">
       </app-trial-card>
     </div>
   </ng-container>

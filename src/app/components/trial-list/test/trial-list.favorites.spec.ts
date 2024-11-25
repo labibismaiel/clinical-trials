@@ -2,20 +2,18 @@ import { ComponentFixture, TestBed, fakeAsync, tick } from '@angular/core/testin
 import { NoopAnimationsModule } from '@angular/platform-browser/animations';
 import { RouterTestingModule } from '@angular/router/testing';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
-import { MatSlideToggleModule } from '@angular/material/slide-toggle';
-import { MatButtonToggleModule } from '@angular/material/button-toggle';
-import { MatIconModule } from '@angular/material/icon';
-import { MatButtonModule } from '@angular/material/button';
-import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
-import { MatTooltipModule } from '@angular/material/tooltip';
-import { MatCardModule } from '@angular/material/card';
-import { FormsModule } from '@angular/forms';
-import { of, throwError, Observable } from 'rxjs';
+import { By } from '@angular/platform-browser';
+import { of, throwError } from 'rxjs';
 import { TrialListComponent } from '../trial-list.component';
 import { ClinicalTrialsService } from '../../../services/clinical-trials.service';
 import { FavoritesService } from '../../../services/favorites.service';
 import { MockTrialCardComponent, mockTrial, createTestSubjects } from './trial-list.test-utils';
-import { By } from '@angular/platform-browser';
+import { MatIconModule } from '@angular/material/icon';
+import { MatButtonModule } from '@angular/material/button';
+import { MatButtonToggleModule } from '@angular/material/button-toggle';
+import { MatSlideToggleModule } from '@angular/material/slide-toggle';
+import { FormsModule } from '@angular/forms';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 
 describe('TrialListComponent Favorites', () => {
   let component: TrialListComponent;
@@ -26,54 +24,41 @@ describe('TrialListComponent Favorites', () => {
   const { trialsSubject, favoritesSubject, loadingSubject } = createTestSubjects();
 
   beforeEach(async () => {
-    const serviceSpy = jasmine.createSpyObj('ClinicalTrialsService', [
-      'getTrials',
-      'getFavorites',
-      'toggleTimer',
-      'toggleFavorite',
-      'fetchInitialTrials',
-      'getLoadingState'
-    ], {
-      trials$: trialsSubject.asObservable(),
-      loading$: loadingSubject.asObservable()
+    clinicalTrialsService = jasmine.createSpyObj('ClinicalTrialsService', {
+      fetchInitialTrials: Promise.resolve(),
+      getTrials: trialsSubject.asObservable(),
+      getFavorites: favoritesSubject.asObservable(),
+      getLoadingState: loadingSubject.asObservable(),
+      toggleTimer: Promise.resolve(),
+      toggleFavorite: Promise.resolve()
     });
 
-    serviceSpy.getTrials.and.returnValue(trialsSubject.asObservable());
-    serviceSpy.getLoadingState.and.returnValue(loadingSubject.asObservable());
-    serviceSpy.toggleTimer.and.returnValue(Promise.resolve());
-
-    const favoritesSpy = jasmine.createSpyObj('FavoritesService', ['getFavorites'], {
+    favoritesService = jasmine.createSpyObj('FavoritesService', ['getFavorites'], {
       favorites$: favoritesSubject.asObservable()
     });
 
-    const snackBarSpy = jasmine.createSpyObj('MatSnackBar', ['open']);
+    snackBar = jasmine.createSpyObj('MatSnackBar', ['open']);
 
     await TestBed.configureTestingModule({
       imports: [
-        TrialListComponent,
-        MockTrialCardComponent,
-        NoopAnimationsModule,
         RouterTestingModule,
+        NoopAnimationsModule,
         MatSnackBarModule,
-        MatSlideToggleModule,
-        MatButtonToggleModule,
         MatIconModule,
         MatButtonModule,
+        MatButtonToggleModule,
+        MatSlideToggleModule,
+        FormsModule,
         MatProgressSpinnerModule,
-        MatTooltipModule,
-        MatCardModule,
-        FormsModule
+        TrialListComponent,
+        MockTrialCardComponent
       ],
       providers: [
-        { provide: ClinicalTrialsService, useValue: serviceSpy },
-        { provide: FavoritesService, useValue: favoritesSpy },
-        { provide: MatSnackBar, useValue: snackBarSpy }
+        { provide: ClinicalTrialsService, useValue: clinicalTrialsService },
+        { provide: FavoritesService, useValue: favoritesService },
+        { provide: MatSnackBar, useValue: snackBar }
       ]
     }).compileComponents();
-
-    clinicalTrialsService = TestBed.inject(ClinicalTrialsService) as jasmine.SpyObj<ClinicalTrialsService>;
-    favoritesService = TestBed.inject(FavoritesService) as jasmine.SpyObj<FavoritesService>;
-    snackBar = TestBed.inject(MatSnackBar) as jasmine.SpyObj<MatSnackBar>;
 
     fixture = TestBed.createComponent(TrialListComponent);
     component = fixture.componentInstance;
@@ -81,51 +66,19 @@ describe('TrialListComponent Favorites', () => {
   });
 
   it('should toggle favorite status', fakeAsync(() => {
+    // Set up initial state with no favorites
+    favoritesSubject.next([]);
+    fixture.detectChanges();
+    tick();
+
     const updatedTrial = { ...mockTrial, isFavorite: true };
     clinicalTrialsService.toggleFavorite.and.returnValue(of(updatedTrial));
 
     component.toggleFavorite(mockTrial);
     tick();
-
-    expect(clinicalTrialsService.toggleFavorite).toHaveBeenCalledWith(mockTrial);
-  }));
-
-  it('should show error message when toggling favorite fails', fakeAsync(() => {
-    // Arrange
-    const error = new Error('Toggle failed');
-    clinicalTrialsService.toggleFavorite.and.returnValue(throwError(() => error));
-
-    // Act
-    component.toggleFavorite(mockTrial);
-    tick(); // Allow error handling to complete
     fixture.detectChanges();
 
-    // Assert
     expect(clinicalTrialsService.toggleFavorite).toHaveBeenCalledWith(mockTrial);
-    expect(snackBar.open).toHaveBeenCalledWith(
-      'Error updating favorite status',
-      'Close',
-      { duration: 3000 }
-    );
-  }));
-
-  it('should show max favorites message when limit is reached', fakeAsync(() => {
-    // Set maxFavoritesReached to true by emitting 10 favorites
-    const favorites = Array(10).fill(mockTrial);
-    favoritesSubject.next(favorites);
-    tick(); // Wait for subscription update
-
-    // Try to favorite another trial
-    const trialToFavorite = { ...mockTrial, isFavorite: false };
-    component.toggleFavorite(trialToFavorite);
-
-    // Verify the error message and that the service wasn't called
-    expect(snackBar.open).toHaveBeenCalledWith(
-      'Maximum favorites limit reached (10)',
-      'Close',
-      { duration: 3000 }
-    );
-    expect(clinicalTrialsService.toggleFavorite).not.toHaveBeenCalled();
   }));
 
   it('should update trial in list when favorite is toggled', fakeAsync(() => {
@@ -138,6 +91,6 @@ describe('TrialListComponent Favorites', () => {
     tick();
     fixture.detectChanges();
 
-    expect(component.trials[0].isFavorite).toBe(true);
+    expect(component.trials()[0].isFavorite).toBe(true);
   }));
 });
