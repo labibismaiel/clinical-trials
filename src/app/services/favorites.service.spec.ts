@@ -150,8 +150,9 @@ describe('FavoritesService', () => {
     // Create new spy that throws error
     spyOn(localStorage, 'setItem').and.throwError('Storage error');
     
-    expect(() => service.addToFavorites(mockTrial))
-      .toThrowError('Failed to save favorites');
+    expect(() => {
+      service.addToFavorites(mockTrial);
+    }).toThrowError('Failed to save favorites');
   });
 
   it('should handle localStorage errors when clearing', () => {

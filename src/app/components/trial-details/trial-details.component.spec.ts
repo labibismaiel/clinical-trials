@@ -2,7 +2,6 @@ import { ComponentFixture, TestBed, fakeAsync, tick } from '@angular/core/testin
 import { ActivatedRoute, Router } from '@angular/router';
 import { of, throwError } from 'rxjs';
 import { NoopAnimationsModule } from '@angular/platform-browser/animations';
-import { MatSnackBar } from '@angular/material/snack-bar';
 import { TrialDetailsComponent } from './trial-details.component';
 import { ClinicalTrialsService } from '../../services/clinical-trials.service';
 import { ClinicalTrial } from '../../models/clinical-trial.model';
@@ -39,8 +38,7 @@ describe('TrialDetailsComponent', () => {
       providers: [
         { provide: ClinicalTrialsService, useValue: clinicalTrialsService },
         { provide: ActivatedRoute, useValue: { params: of({ id: 'NCT123' }) } },
-        { provide: Router, useValue: jasmine.createSpyObj('Router', ['navigate']) },
-        { provide: MatSnackBar, useValue: jasmine.createSpyObj('MatSnackBar', ['open']) }
+        { provide: Router, useValue: jasmine.createSpyObj('Router', ['navigate']) }
       ]
     });
 
@@ -101,7 +99,7 @@ describe('TrialDetailsComponent', () => {
     it('should handle removing from favorites', fakeAsync(() => {
       const favorited = { ...mockTrial, isFavorite: true };
       const unfavorited = { ...mockTrial, isFavorite: false };
-      
+
       component.trial = favorited;
       clinicalTrialsService.toggleFavorite.and.returnValue(of(unfavorited));
 

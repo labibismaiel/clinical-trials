@@ -14,7 +14,7 @@ import { ClinicalTrial } from '../../models/clinical-trial.model';
 import { TrialCardComponent } from '../shared/trial-card/trial-card.component';
 import { MatSnackBarModule, MatSnackBar } from '@angular/material/snack-bar';
 import { MatCardModule } from '@angular/material/card';
-import { Subscription, merge } from 'rxjs';
+import { Subscription, merge, EMPTY, catchError, tap } from 'rxjs';
 
 @Component({
   selector: 'app-trial-list',
@@ -52,10 +52,29 @@ export class TrialListComponent implements OnInit, OnDestroy {
   ) {}
 
   ngOnInit(): void {
-    this.fetchTrials();
-    this.subscribeToFavorites();
-    this.subscribeToTrials();
-    this.subscribeToLoadingState();
+    this.subscriptions.push(
+      this.clinicalTrialsService.getTrials().subscribe(trials => {
+        this.trials = trials;
+      })
+    );
+
+    this.subscriptions.push(
+      this.clinicalTrialsService.getLoadingState().subscribe(loading => {
+        this.loading = loading;
+      })
+    );
+
+    this.subscriptions.push(
+      this.favoritesService.favorites$.subscribe(favorites => {
+        this.maxFavoritesReached = favorites.length >= 10;
+      })
+    );
+
+    // Initialize view mode
+    this.viewMode = 'card';
+    
+    // Fetch initial trials
+    this.clinicalTrialsService.fetchInitialTrials();
   }
 
   async ngOnDestroy(): Promise<void> {
@@ -75,12 +94,13 @@ export class TrialListComponent implements OnInit, OnDestroy {
   }
 
   async toggleAutoFetch(event: { checked: boolean }): Promise<void> {
+    const wasEnabled = this.autoFetch;
     try {
       this.autoFetch = event.checked;
       await this.clinicalTrialsService.toggleTimer(event.checked);
     } catch (error) {
       console.error('Error toggling auto-fetch:', error);
-      this.autoFetch = false;
+      this.autoFetch = wasEnabled; // Restore previous state
       this.snackBar.open('Error toggling auto-fetch. Please try again.', 'Close', {
         duration: 3000
       });
@@ -88,24 +108,31 @@ export class TrialListComponent implements OnInit, OnDestroy {
   }
 
   toggleFavorite(trial: ClinicalTrial): void {
+    // Check for max favorites before attempting to favorite
     if (!trial.isFavorite && this.maxFavoritesReached) {
       this.snackBar.open('Maximum favorites limit reached (10)', 'Close', { duration: 3000 });
       return;
     }
 
-    this.clinicalTrialsService.toggleFavorite(trial).subscribe({
-      next: (updatedTrial) => {
-        const index = this.trials.findIndex(t => t.nctId === updatedTrial.nctId);
-        if (index !== -1) {
-          this.trials[index] = updatedTrial;
-          this.trials = [...this.trials];
-        }
-      },
-      error: (error) => {
-        console.error('Error toggling favorite:', error);
-        this.snackBar.open('Error updating favorite status', 'Close', { duration: 3000 });
-      }
-    });
+    this.clinicalTrialsService.toggleFavorite(trial)
+      .pipe(
+        tap({
+          error: (error) => {
+            console.error('Error toggling favorite:', error);
+            this.snackBar.open('Error updating favorite status', 'Close', { duration: 3000 });
+          }
+        })
+      )
+      .subscribe({
+        next: (updatedTrial) => {
+          const index = this.trials.findIndex(t => t.nctId === updatedTrial.nctId);
+          if (index !== -1) {
+            this.trials[index] = updatedTrial;
+            this.trials = [...this.trials];
+          }
+        },
+        error: () => {} // Handle error in tap operator
+      });
   }
 
   viewTrialDetails(trial: ClinicalTrial): void {
@@ -114,42 +141,6 @@ export class TrialListComponent implements OnInit, OnDestroy {
 
   trackByTrialId(index: number, trial: ClinicalTrial): string {
     return trial.nctId;
-  }
-
-  private subscribeToFavorites(): void {
-    this.subscriptions.push(
-      this.favoritesService.favorites$.subscribe(favorites => {
-        this.maxFavoritesReached = favorites.length >= 10;
-      })
-    );
-  }
-
-  private subscribeToTrials(): void {
-    this.subscriptions.push(
-      this.clinicalTrialsService.getTrials().subscribe({
-        next: (trials) => {
-          this.trials = trials;
-          this.error = false;
-        },
-        error: (error) => {
-          console.error('Error fetching trials:', error);
-          this.error = true;
-          this.snackBar.open('Error fetching trials. Please try again later.', 'Close', {
-            duration: 3000
-          });
-        }
-      })
-    );
-  }
-
-  private subscribeToLoadingState(): void {
-    this.subscriptions.push(
-      this.clinicalTrialsService.getLoadingState().subscribe(
-        isLoading => {
-          this.loading = isLoading;
-        }
-      )
-    );
   }
 
   private showNotification(message: string, type: 'success' | 'error' = 'success') {

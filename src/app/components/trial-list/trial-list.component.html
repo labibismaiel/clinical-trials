@@ -58,7 +58,8 @@
         [trial]="trial"
         [viewMode]="'card'"
         [maxFavoritesReached]="maxFavoritesReached"
-        (favoriteToggled)="toggleFavorite($event)">
+        (favoriteToggled)="toggleFavorite($event)"
+        (trialClicked)="viewTrialDetails($event)">
       </app-trial-card>
     </div>
 
@@ -69,7 +70,8 @@
         [trial]="trial"
         [viewMode]="'list'"
         [maxFavoritesReached]="maxFavoritesReached"
-        (favoriteToggled)="toggleFavorite($event)">
+        (favoriteToggled)="toggleFavorite($event)"
+        (trialClicked)="viewTrialDetails($event)">
       </app-trial-card>
     </div>
   </ng-container>

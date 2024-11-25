@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpErrorResponse, HttpParams } from '@angular/common/http';
-import { BehaviorSubject, Observable, interval, of, throwError } from 'rxjs';
-import { catchError, map, retry, take, tap } from 'rxjs/operators';
+import { BehaviorSubject, Observable, interval, of, throwError, firstValueFrom } from 'rxjs';
+import { catchError, map, retry, take, tap, finalize } from 'rxjs/operators';
 import { ClinicalTrial } from '../models/clinical-trial.model';
 import { ClinicalTrialsApiResponse } from '../models/clinical-trials-api.model';
 import { FavoritesService } from './favorites.service';
@@ -192,12 +192,8 @@ export class ClinicalTrialsService {
   }
 
   fetchInitialTrials(): void {
-    const params = new HttpParams()
-      .set('format', 'json')
-      .set('pageSize', String(this.maxTrials));
-
     this.isLoading.next(true);
-    this.http.get<ClinicalTrialsApiResponse>(this.apiUrl, { params })
+    this.http.get<ClinicalTrialsApiResponse>(this.apiUrl, { params: new HttpParams().set('format', 'json').set('pageSize', String(this.maxTrials)) })
       .pipe(
         retry(3),
         catchError((error) => {
@@ -205,21 +201,20 @@ export class ClinicalTrialsService {
           this.isLoading.next(false);
           this.trials.next([]);
           return throwError(() => error);
+        }),
+        finalize(() => {
+          this.isLoading.next(false);
         })
       )
       .subscribe({
         next: (response) => {
-          try {
-            if (response?.studies && response.studies.length > 0) {
-              const trial = this.mapApiResponseToTrial(response.studies[0]);
-              this.trials.next([trial]);
-              this.saveTrialsToStorage([trial]);
-            } else {
-              console.error('No studies found in the API response');
-              this.trials.next([]);
-            }
-          } finally {
-            this.isLoading.next(false);
+          if (response?.studies && response.studies.length > 0) {
+            const trial = this.mapApiResponseToTrial(response.studies[0]);
+            this.trials.next([trial]);
+            this.saveTrialsToStorage([trial]);
+          } else {
+            console.error('No studies found in the API response');
+            this.trials.next([]);
           }
         },
         error: () => {} // Error already handled in catchError
@@ -234,19 +229,33 @@ export class ClinicalTrialsService {
 
     if (enabled) {
       try {
-        if (this.trialIds.length === 0) {
-          await this.fetchTrialIds();
+        const params = new HttpParams()
+          .set('format', 'json')
+          .set('pageSize', '1000')
+          .set('fields', 'NCTId');
+
+        const response = await firstValueFrom(
+          this.http.get<ClinicalTrialsApiResponse>(this.apiUrl, { params })
+            .pipe(
+              retry(3),
+              catchError((error) => {
+                console.error('Error fetching trial IDs:', error);
+                throw error; // Re-throw the error to be caught by the outer catch
+              })
+            )
+        );
+
+        if (response?.studies) {
+          this.trialIds = response.studies.map(study => study.protocolSection.identificationModule.nctId);
+          this.timerSubscription = interval(30000)
+            .pipe(
+              tap(() => this.fetchRandomTrials())
+            )
+            .subscribe();
         }
-
-        this.fetchRandomTrials();
-
-        this.timerSubscription = interval(this.fetchInterval).subscribe(() => {
-          this.fetchRandomTrials();
-        });
       } catch (error) {
-        console.error('Error toggling timer:', error);
-        this.timerSubscription = null;
-        throw error;
+        console.error('Error fetching trial IDs:', error);
+        throw error; // Re-throw the error to propagate it to the component
       }
     }
   }

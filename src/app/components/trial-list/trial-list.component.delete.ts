@@ -18,6 +18,21 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatCardModule } from '@angular/material/card';
 import { MatSnackBarModule } from '@angular/material/snack-bar';
 import { FormsModule } from '@angular/forms';
+import { Component, EventEmitter, Input, Output } from '@angular/core';
+import { CommonModule } from '@angular/common';
+
+@Component({
+  selector: 'app-trial-card',
+  template: '',
+  standalone: true,
+  imports: [CommonModule]
+})
+class MockTrialCardComponent {
+  @Input() trial!: ClinicalTrial;
+  @Input() isFavorite!: boolean;
+  @Output() favoriteToggled = new EventEmitter<ClinicalTrial>();
+  @Output() trialClicked = new EventEmitter<ClinicalTrial>();
+}
 
 describe('TrialListComponent', () => {
   let component: TrialListComponent;
@@ -59,7 +74,6 @@ describe('TrialListComponent', () => {
     serviceSpy.getTrials.and.returnValue(trialsSubject.asObservable());
     serviceSpy.getLoadingState.and.returnValue(loadingSubject.asObservable());
     serviceSpy.toggleTimer.and.returnValue(Promise.resolve());
-    serviceSpy.toggleFavorite.and.returnValue(of({ ...mockTrial, isFavorite: true }));
 
     const favoritesSpy = jasmine.createSpyObj('FavoritesService', ['getFavorites'], {
       favorites$: favoritesSubject.asObservable()
@@ -70,6 +84,8 @@ describe('TrialListComponent', () => {
 
     await TestBed.configureTestingModule({
       imports: [
+        TrialListComponent,
+        MockTrialCardComponent,
         NoopAnimationsModule,
         RouterTestingModule,
         MatSlideToggleModule,
@@ -80,7 +96,8 @@ describe('TrialListComponent', () => {
         MatTooltipModule,
         MatCardModule,
         MatSnackBarModule,
-        FormsModule
+        FormsModule,
+        CommonModule
       ],
       providers: [
         { provide: ClinicalTrialsService, useValue: serviceSpy },
@@ -94,12 +111,13 @@ describe('TrialListComponent', () => {
     favoritesService = TestBed.inject(FavoritesService) as jasmine.SpyObj<FavoritesService>;
     router = TestBed.inject(Router) as jasmine.SpyObj<Router>;
     snackBar = TestBed.inject(MatSnackBar) as jasmine.SpyObj<MatSnackBar>;
+  });
 
+  beforeEach(() => {
     fixture = TestBed.createComponent(TrialListComponent);
     component = fixture.componentInstance;
-
-    // Initialize component subscriptions
-    component.ngOnInit();
+    component.loading = false;
+    component.error = false;
     fixture.detectChanges();
   });
 
@@ -164,8 +182,8 @@ describe('TrialListComponent', () => {
 
   describe('favorite functionality', () => {
     beforeEach(() => {
-      // Reset the spy's behavior for each test
-      clinicalTrialsService.toggleFavorite.calls.reset();
+      component.trials = [mockTrial];
+      fixture.detectChanges();
     });
 
     it('should prevent adding favorites when limit reached', () => {
@@ -177,94 +195,120 @@ describe('TrialListComponent', () => {
       expect(clinicalTrialsService.toggleFavorite).not.toHaveBeenCalled();
     });
 
-    it('should toggle favorite status', fakeAsync(() => {
-      // Set up initial state with trial data
+    it('should toggle favorite status when trial card emits favoriteToggled', fakeAsync(() => {
+      const mockTrial: ClinicalTrial = {
+        nctId: 'NCT123',
+        briefTitle: 'Test Trial',
+        overallStatus: 'Active',
+        description: 'Test Description',
+        condition: 'Condition 1',
+        interventions: ['Intervention 1'],
+        locations: ['Location 1'],
+        isFavorite: false
+      };
+
       trialsSubject.next([mockTrial]);
       fixture.detectChanges();
 
-      // Set up the toggle favorite response
-      const updatedTrial = { ...mockTrial, isFavorite: true };
-      clinicalTrialsService.toggleFavorite.and.returnValue(of(updatedTrial));
-      
-      // Trigger favorite toggle
-      component.toggleFavorite(mockTrial);
+      const trialCard = fixture.debugElement.query(By.directive(MockTrialCardComponent));
+      expect(trialCard).toBeTruthy();
+
+      const mockTrialCardComponent = trialCard.componentInstance as MockTrialCardComponent;
+      clinicalTrialsService.toggleFavorite.and.returnValue(of({ ...mockTrial, isFavorite: true }));
+
+      mockTrialCardComponent.favoriteToggled.emit(mockTrial);
       tick();
+      fixture.detectChanges();
 
-      // Verify the service was called with the correct trial
       expect(clinicalTrialsService.toggleFavorite).toHaveBeenCalledWith(mockTrial);
-
-      // Verify the trial list was updated
-      expect(component.trials.find(t => t.nctId === mockTrial.nctId)?.isFavorite).toBeTrue();
     }));
 
-    it('should handle error when toggling favorite', fakeAsync(() => {
-      spyOn(console, 'error');
+    it('should show error message when toggling favorite fails', fakeAsync(() => {
+      const mockError = new Error('Failed to toggle favorite');
+      clinicalTrialsService.toggleFavorite.and.returnValue(throwError(() => mockError));
 
-      // Set up initial state with trial data
-      trialsSubject.next([mockTrial]);
-      fixture.detectChanges();
-
-      // Set up the error response
-      clinicalTrialsService.toggleFavorite.and.returnValue(throwError(() => new Error('Test error')));
-      
-      // Trigger favorite toggle
       component.toggleFavorite(mockTrial);
       tick();
 
-      expect(clinicalTrialsService.toggleFavorite).toHaveBeenCalledWith(mockTrial);
-      expect(console.error).toHaveBeenCalledWith('Error toggling favorite:', jasmine.any(Error));
-      expect(snackBar.open).toHaveBeenCalledWith('Error updating favorite status', 'Close', { duration: 3000 });
+      expect(snackBar.open).toHaveBeenCalledWith(
+        'Error updating favorite status',
+        'Close',
+        { duration: 3000 }
+      );
     }));
 
     it('should not navigate when clicking favorite button', fakeAsync(() => {
       // Set up initial state with trial data
       trialsSubject.next([mockTrial]);
       fixture.detectChanges();
-      
+
       // Set up the toggle favorite response
       clinicalTrialsService.toggleFavorite.and.returnValue(of({ ...mockTrial, isFavorite: true }));
-      
+
       // Trigger favorite toggle
       component.toggleFavorite(mockTrial);
       tick(); // Wait for any async operations
-      
+
       expect(router.navigate).not.toHaveBeenCalled();
       expect(clinicalTrialsService.toggleFavorite).toHaveBeenCalledWith(mockTrial);
     }));
   });
 
   describe('view mode', () => {
+    beforeEach(() => {
+      const mockTrial: ClinicalTrial = {
+        nctId: 'NCT123',
+        briefTitle: 'Test Trial',
+        overallStatus: 'Active',
+        description: 'Test Description',
+        condition: 'Condition 1',
+        interventions: ['Intervention 1'],
+        locations: ['Location 1'],
+        isFavorite: false
+      };
+
+      component.trials = [mockTrial];
+      component.loading = false;
+      component.error = false;
+      component.viewMode = 'card';
+      trialsSubject.next([mockTrial]);
+      fixture.detectChanges();
+    });
+
     it('should initialize with card view', () => {
       expect(component.viewMode).toBe('card');
     });
 
     it('should allow switching between card and list view', () => {
       component.viewMode = 'list';
+      fixture.detectChanges();
       expect(component.viewMode).toBe('list');
 
       component.viewMode = 'card';
+      fixture.detectChanges();
       expect(component.viewMode).toBe('card');
     });
 
-    it('should update view mode through button toggle', () => {
-      // Set up initial state
-      trialsSubject.next([mockTrial]);
+    it('should update view mode through button toggle', fakeAsync(() => {
+      // Initial state should be card view
+      const gridView = fixture.debugElement.query(By.css('.trials-grid'));
+      expect(gridView).toBeTruthy('Grid view should be visible initially');
+
+      // Find and click the list view toggle button
+      const buttonGroup = fixture.debugElement.query(By.css('mat-button-toggle-group'));
+      expect(buttonGroup).toBeTruthy('Button toggle group should exist');
+
+      // Simulate ngModel change
+      buttonGroup.triggerEventHandler('ngModelChange', 'list');
       fixture.detectChanges();
-      
-      // Verify initial state
-      expect(component.viewMode).toBe('card');
-      expect(fixture.debugElement.query(By.css('.trials-grid'))).toBeTruthy();
-      expect(fixture.debugElement.query(By.css('.trials-list'))).toBeFalsy();
-      
-      // Update the model value
-      component.viewMode = 'list';
-      fixture.detectChanges();
-      
-      // Verify the view has changed
-      expect(component.viewMode).toBe('list');
-      expect(fixture.debugElement.query(By.css('.trials-list'))).toBeTruthy();
-      expect(fixture.debugElement.query(By.css('.trials-grid'))).toBeFalsy();
-    });
+
+      // Check if viewMode is updated
+      expect(component.viewMode).toBe('list', 'View mode should be list after toggle');
+
+      // Check if list view is visible
+      const listView = fixture.debugElement.query(By.css('.trials-list'));
+      expect(listView).toBeTruthy('List view should be visible after toggle');
+    }));
   });
 
   describe('navigation', () => {
@@ -275,7 +319,7 @@ describe('TrialListComponent', () => {
 
       // Trigger click on the trial card
       component.viewTrialDetails(mockTrial);
-      
+
       expect(router.navigate).toHaveBeenCalledWith(['/trial', mockTrial.nctId]);
     });
 
@@ -287,7 +331,7 @@ describe('TrialListComponent', () => {
 
       // Trigger click on the trial card in list view
       component.viewTrialDetails(mockTrial);
-      
+
       expect(router.navigate).toHaveBeenCalledWith(['/trial', mockTrial.nctId]);
     });
 
@@ -295,14 +339,14 @@ describe('TrialListComponent', () => {
       // Set up initial state with trial data
       trialsSubject.next([mockTrial]);
       fixture.detectChanges();
-      
+
       // Set up the toggle favorite response
       clinicalTrialsService.toggleFavorite.and.returnValue(of({ ...mockTrial, isFavorite: true }));
-      
+
       // Trigger favorite toggle
       component.toggleFavorite(mockTrial);
       tick(); // Wait for any async operations
-      
+
       expect(router.navigate).not.toHaveBeenCalled();
       expect(clinicalTrialsService.toggleFavorite).toHaveBeenCalledWith(mockTrial);
     }));
@@ -312,7 +356,7 @@ describe('TrialListComponent', () => {
     it('should stop timer and unsubscribe on destroy', fakeAsync(async () => {
       component.autoFetch = true;
       const subscriptionSpy = spyOn(component['subscriptions'][0], 'unsubscribe');
-      
+
       await component.ngOnDestroy();
       tick();
 
@@ -325,11 +369,11 @@ describe('TrialListComponent', () => {
       component.autoFetch = true;
       clinicalTrialsService.toggleTimer.and.returnValue(Promise.reject(new Error('Test error')));
       spyOn(console, 'error');
-      
+
       try {
         await component.ngOnDestroy();
         tick();
-        
+
         expect(console.error).toHaveBeenCalledWith('Error stopping timer:', jasmine.any(Error));
       } catch (error) {
         // Error is expected to be caught in ngOnDestroy

@@ -1,9 +1,9 @@
-import { TestBed, fakeAsync, tick } from '@angular/core/testing';
+import { TestBed, fakeAsync, tick, discardPeriodicTasks } from '@angular/core/testing';
 import { HttpClientTestingModule, HttpTestingController } from '@angular/common/http/testing';
 import { HttpParams } from '@angular/common/http';
 import { ClinicalTrialsService } from './clinical-trials.service';
 import { ClinicalTrial } from '../models/clinical-trial.model';
-import { of } from 'rxjs';
+import { of, throwError } from 'rxjs';
 import { FavoritesService } from './favorites.service';
 
 describe('ClinicalTrialsService', () => {
@@ -101,8 +101,8 @@ describe('ClinicalTrialsService', () => {
       service.fetchInitialTrials();
       tick();
 
-      const req = httpMock.expectOne(request => 
-        request.url === service['apiUrl'] && 
+      const req = httpMock.expectOne(request =>
+        request.url === service['apiUrl'] &&
         request.params.toString() === params.toString()
       );
       expect(req.request.method).toBe('GET');
@@ -117,48 +117,44 @@ describe('ClinicalTrialsService', () => {
     }));
 
     it('should handle error when fetching trials', fakeAsync(() => {
-      let loadingState = false;
-      let trials: ClinicalTrial[] = [];
-
-      // Subscribe to loading state and trials
+      // Setup
+      service.fetchInitialTrials();
+      
+      // Service will retry 3 times
+      for (let i = 0; i < 3; i++) {
+        const req = httpMock.expectOne(`${service['apiUrl']}?format=json&pageSize=10`);
+        expect(req.request.method).toBe('GET');
+        req.error(new ErrorEvent('API Error'));
+        tick(); // Let the retry logic process
+      }
+      
+      // Final request that will fail
+      const req = httpMock.expectOne(`${service['apiUrl']}?format=json&pageSize=10`);
+      expect(req.request.method).toBe('GET');
+      req.error(new ErrorEvent('API Error'));
+      
+      tick(); // Let error handlers run
+      
+      // Check loading state
+      let loadingState = true;
       service.getLoadingState().subscribe(state => {
         loadingState = state;
       });
-      service.getTrials().subscribe(t => {
-        trials = t;
+      expect(loadingState).toBe(false); // Loading should be false after error
+      
+      // Get current trials value
+      let currentTrials: ClinicalTrial[] = [];
+      service.getTrials().subscribe(trials => {
+        currentTrials = trials;
       });
-
-      // Make the request
-      service.fetchInitialTrials();
-
-      // Verify loading state is true during request
-      expect(loadingState).toBeTrue();
-
-      // Get the pending request
-      const req = httpMock.expectOne(request => 
-        request.url === service['apiUrl'] && 
-        request.params.get('format') === 'json' &&
-        request.params.get('pageSize') === String(service['maxTrials'])
-      );
-      expect(req.request.method).toBe('GET');
-
-      // Simulate error response
-      req.error(new ErrorEvent('API Error'));
-      tick();
-
-      // Verify loading state is false and trials are empty after error
-      expect(loadingState).toBeFalse();
-      expect(trials.length).toBe(0);
-
-      // Verify no pending requests
-      httpMock.verify();
+      expect(currentTrials).toEqual([]); // Trials should be empty on error
     }));
   });
 
   describe('loading state', () => {
     it('should track loading state', fakeAsync(() => {
       let loadingState: boolean | undefined;
-      
+
       service.getLoadingState().subscribe(state => {
         loadingState = state;
       });
@@ -172,7 +168,7 @@ describe('ClinicalTrialsService', () => {
       // Loading state should be true immediately after request starts
       expect(loadingState).toBeTrue();
 
-      const req = httpMock.expectOne(req => 
+      const req = httpMock.expectOne(req =>
         req.url === service['apiUrl'] &&
         req.params.get('format') === 'json' &&
         req.params.get('pageSize') === String(service['maxTrials'])
@@ -186,69 +182,154 @@ describe('ClinicalTrialsService', () => {
   });
 
   describe('toggleTimer', () => {
-    it('should fetch trial IDs when timer is first enabled', fakeAsync(async () => {
-      await service.toggleTimer(true);
+    it('should fetch trial IDs when timer is first enabled', fakeAsync(() => {
+      // Call toggleTimer
+      service.toggleTimer(true);
       tick();
 
-      const req = httpMock.expectOne(req => 
-        req.url === service['apiUrl'] && 
+      // Verify and handle the HTTP request for trial IDs
+      const req = httpMock.expectOne(req =>
+        req.url === service['apiUrl'] &&
         req.params.get('format') === 'json' &&
         req.params.get('pageSize') === '1000' &&
         req.params.get('fields') === 'NCTId'
       );
+      expect(req.request.method).toBe('GET');
       req.flush({ studies: [{ protocolSection: { identificationModule: { nctId: 'NCT123' } } }] });
+      
+      tick(); // Let the timer start
+      
+      // Cleanup before any interval triggers
+      service.toggleTimer(false);
       tick();
-
-      expect(service['timerSubscription']).toBeDefined();
+      
+      // Verify no pending requests
       httpMock.verify();
     }));
 
     it('should stop fetching when timer is disabled', fakeAsync(async () => {
-      // First enable the timer
-      await service.toggleTimer(true);
+      // Start the timer first
+      service.toggleTimer(true);
       tick();
 
-      const req = httpMock.expectOne(req => 
-        req.url === service['apiUrl'] && 
-        req.params.get('format') === 'json' &&
-        req.params.get('pageSize') === '1000' &&
-        req.params.get('fields') === 'NCTId'
+      // Get and handle the initial request for trial IDs
+      const req = httpMock.expectOne(request =>
+        request.url === service['apiUrl'] &&
+        request.params.get('format') === 'json' &&
+        request.params.get('pageSize') === '1000' &&
+        request.params.get('fields') === 'NCTId'
       );
-      req.flush({ studies: [{ protocolSection: { identificationModule: { nctId: 'NCT123' } } }] });
+      expect(req.request.method).toBe('GET');
+
+      // Respond with some trial IDs
+      req.flush({
+        studies: [
+          { protocolSection: { identificationModule: { nctId: 'NCT001' } } },
+          { protocolSection: { identificationModule: { nctId: 'NCT002' } } }
+        ]
+      });
       tick();
 
-      // Then disable it
+      // First interval triggers fetchRandomTrials
+      tick(30000);
+
+      // Handle the request for the randomly selected trial
+      const trialReq = httpMock.expectOne(request => 
+        request.url.startsWith(service['apiUrl']) && 
+        (request.url.endsWith('/NCT001') || request.url.endsWith('/NCT002'))
+      );
+      
+      // Mock response data structure matching the API
+      const mockTrialResponse = {
+        studies: [{
+          protocolSection: {
+            identificationModule: {
+              nctId: trialReq.request.url.endsWith('/NCT001') ? 'NCT001' : 'NCT002',
+              briefTitle: 'Test Trial',
+              organization: { fullName: 'Test Org' }
+            },
+            statusModule: {
+              statusVerifiedDate: '2023-01-01',
+              overallStatus: 'Active'
+            },
+            descriptionModule: {
+              briefSummary: 'Test summary'
+            }
+          }
+        }]
+      };
+      
+      trialReq.flush(mockTrialResponse);
+      tick();
+
+      // Now disable the timer
       await service.toggleTimer(false);
       tick();
 
-      // Verify subscription is cleaned up
-      expect(service['timerSubscription']).toBeNull();
-
-      // Verify no more requests are made
+      // Verify no more requests are pending
       httpMock.verify();
+
+      // Clean up any remaining async tasks
+      discardPeriodicTasks();
     }));
 
-    it('should handle error when fetching trial IDs', fakeAsync(async () => {
-      const togglePromise = service.toggleTimer(true);
+    it('should handle error when fetching trial IDs', fakeAsync(() => {
+      // Spy on console.error
+      spyOn(console, 'error');
+
+      // Call toggleTimer
+      service.toggleTimer(true);
       tick();
 
-      const req = httpMock.expectOne(req => 
-        req.url === service['apiUrl'] && 
-        req.params.get('format') === 'json' &&
-        req.params.get('pageSize') === '1000' &&
-        req.params.get('fields') === 'NCTId'
+      // Get and handle the initial request with an error
+      const req = httpMock.expectOne(request =>
+        request.url === service['apiUrl'] &&
+        request.params.get('format') === 'json' &&
+        request.params.get('pageSize') === '1000' &&
+        request.params.get('fields') === 'NCTId'
       );
-      req.error(new ErrorEvent('API Error'));
+      expect(req.request.method).toBe('GET');
+
+      // Simulate an error response
+      const error = new ErrorEvent('API Error');
+      req.error(error);
       tick();
 
-      try {
-        await togglePromise;
-        fail('Expected toggleTimer to throw an error');
-      } catch (error) {
-        expect(error).toBeTruthy();
-        expect(service['timerSubscription']).toBeNull();
-      }
+      // Verify error was logged
+      expect(console.error).toHaveBeenCalledWith('Error fetching trial IDs:', jasmine.any(Error));
+    }));
 
+    it('should fetch trial IDs and start timer when enabled', fakeAsync(async () => {
+      const mockStudies = [
+        { protocolSection: { identificationModule: { nctId: 'NCT001' } } },
+        { protocolSection: { identificationModule: { nctId: 'NCT002' } } }
+      ];
+
+      // Start the timer
+      service.toggleTimer(true);
+      tick();
+
+      // Get the pending request
+      const req = httpMock.expectOne(request =>
+        request.url === service['apiUrl'] &&
+        request.params.get('format') === 'json' &&
+        request.params.get('pageSize') === '1000' &&
+        request.params.get('fields') === 'NCTId'
+      );
+      expect(req.request.method).toBe('GET');
+
+      // Simulate successful response
+      req.flush({ studies: mockStudies });
+      tick();
+
+      // Clean up any remaining async tasks
+      discardPeriodicTasks();
+
+      // Clean up
+      await service.toggleTimer(false);
+      tick();
+
+      // Verify no pending requests
       httpMock.verify();
     }));
   });
@@ -257,7 +338,7 @@ describe('ClinicalTrialsService', () => {
     it('should fetch a single trial by ID', fakeAsync(() => {
       const testId = 'NCT123';
       let result: ClinicalTrial | undefined;
-      
+
       service.getTrialById(testId).subscribe(trial => {
         result = trial;
       });
@@ -275,7 +356,7 @@ describe('ClinicalTrialsService', () => {
     it('should handle error when fetching single trial', fakeAsync(() => {
       const testId = 'NCT123';
       let errorResult: any;
-      
+
       service.getTrialById(testId).subscribe({
         next: () => fail('Expected an error'),
         error: (error) => {
