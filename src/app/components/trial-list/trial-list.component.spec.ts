@@ -25,6 +25,7 @@ describe('TrialListComponent', () => {
   let clinicalTrialsService: jasmine.SpyObj<ClinicalTrialsService>;
   let favoritesService: jasmine.SpyObj<FavoritesService>;
   let router: jasmine.SpyObj<Router>;
+  let snackBar: jasmine.SpyObj<MatSnackBar>;
 
   const mockTrial: ClinicalTrial = {
     nctId: 'NCT123',
@@ -65,6 +66,7 @@ describe('TrialListComponent', () => {
     });
 
     const routerSpy = jasmine.createSpyObj('Router', ['navigate']);
+    const snackBarSpy = jasmine.createSpyObj('MatSnackBar', ['open']);
 
     await TestBed.configureTestingModule({
       imports: [
@@ -84,13 +86,14 @@ describe('TrialListComponent', () => {
         { provide: ClinicalTrialsService, useValue: serviceSpy },
         { provide: FavoritesService, useValue: favoritesSpy },
         { provide: Router, useValue: routerSpy },
-        MatSnackBar
+        { provide: MatSnackBar, useValue: snackBarSpy }
       ]
     }).compileComponents();
 
     clinicalTrialsService = TestBed.inject(ClinicalTrialsService) as jasmine.SpyObj<ClinicalTrialsService>;
     favoritesService = TestBed.inject(FavoritesService) as jasmine.SpyObj<FavoritesService>;
     router = TestBed.inject(Router) as jasmine.SpyObj<Router>;
+    snackBar = TestBed.inject(MatSnackBar) as jasmine.SpyObj<MatSnackBar>;
 
     fixture = TestBed.createComponent(TrialListComponent);
     component = fixture.componentInstance;
@@ -196,8 +199,6 @@ describe('TrialListComponent', () => {
 
     it('should handle error when toggling favorite', fakeAsync(() => {
       spyOn(console, 'error');
-      const snackBar = TestBed.inject(MatSnackBar);
-      spyOn(snackBar, 'open');
 
       // Set up initial state with trial data
       trialsSubject.next([mockTrial]);
