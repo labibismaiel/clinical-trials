@@ -148,7 +148,7 @@ export class ClinicalTrialsService {
   }
 
   fetchRandomTrials(): void {
-    if (this.trialIds.length === 0) return;
+    if (this.trialIds.length === 0 || !this.timerSubscription) return;
 
     const selectedId = this.getRandomUnusedId();
     if (!selectedId) return;

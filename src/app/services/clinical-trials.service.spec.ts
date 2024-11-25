@@ -200,17 +200,22 @@ describe('ClinicalTrialsService', () => {
       httpMock.verify();
     }));
 
-    it('should stop fetching when timer is disabled', fakeAsync(() => {
+    it('should stop fetching when timer is disabled', fakeAsync(async () => {
       // First enable the timer
-      service.toggleTimer(true);
+      await service.toggleTimer(true);
       tick();
 
-      const req = httpMock.expectOne(req => req.url === service['apiUrl']);
-      req.flush(mockApiResponse);
+      const req = httpMock.expectOne(req => 
+        req.url === service['apiUrl'] && 
+        req.params.get('format') === 'json' &&
+        req.params.get('pageSize') === '1000' &&
+        req.params.get('fields') === 'NCTId'
+      );
+      req.flush({ studies: [{ protocolSection: { identificationModule: { nctId: 'NCT123' } } }] });
       tick();
 
       // Then disable it
-      service.toggleTimer(false);
+      await service.toggleTimer(false);
       tick();
 
       // Verify subscription is cleaned up
@@ -221,25 +226,26 @@ describe('ClinicalTrialsService', () => {
     }));
 
     it('should handle error when fetching trial IDs', fakeAsync(async () => {
-      let error: any;
-      try {
-        await service.toggleTimer(true);
-      } catch (e) {
-        error = e;
-      }
+      const togglePromise = service.toggleTimer(true);
       tick();
 
-      const req = httpMock.expectOne(request => 
-        request.url === service['apiUrl'] && 
-        request.params.get('format') === 'json' &&
-        request.params.get('pageSize') === '1000' &&
-        request.params.get('fields') === 'NCTId'
+      const req = httpMock.expectOne(req => 
+        req.url === service['apiUrl'] && 
+        req.params.get('format') === 'json' &&
+        req.params.get('pageSize') === '1000' &&
+        req.params.get('fields') === 'NCTId'
       );
       req.error(new ErrorEvent('API Error'));
       tick();
 
-      expect(error).toBeTruthy();
-      expect(service['timerSubscription']).toBeNull();
+      try {
+        await togglePromise;
+        fail('Expected toggleTimer to throw an error');
+      } catch (error) {
+        expect(error).toBeTruthy();
+        expect(service['timerSubscription']).toBeNull();
+      }
+
       httpMock.verify();
     }));
   });
