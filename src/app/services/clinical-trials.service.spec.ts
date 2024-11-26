@@ -207,70 +207,48 @@ describe('ClinicalTrialsService', () => {
       httpMock.verify();
     }));
 
-    it('should stop fetching when timer is disabled', fakeAsync(async () => {
+    it('should stop fetching when timer is disabled', fakeAsync(() => {
       // Start the timer first
       service.toggleTimer(true);
       tick();
 
       // Get and handle the initial request for trial IDs
-      const req = httpMock.expectOne(request =>
+      const idReq = httpMock.expectOne(request =>
         request.url === service['apiUrl'] &&
         request.params.get('format') === 'json' &&
         request.params.get('pageSize') === '1000' &&
         request.params.get('fields') === 'NCTId'
       );
-      expect(req.request.method).toBe('GET');
+      expect(idReq.request.method).toBe('GET');
 
       // Respond with some trial IDs
-      req.flush({
+      idReq.flush({
         studies: [
-          { protocolSection: { identificationModule: { nctId: 'NCT001' } } },
-          { protocolSection: { identificationModule: { nctId: 'NCT002' } } }
+          { protocolSection: { identificationModule: { nctId: 'NCT001' } } }
         ]
       });
+
+      // Let the initial fetch happen
       tick();
 
-      // First interval triggers fetchRandomTrials
-      tick(30000);
-
-      // Handle the request for the randomly selected trial
-      const trialReq = httpMock.expectOne(request =>
-        request.url.startsWith(service['apiUrl']) &&
-        (request.url.endsWith('/NCT001') || request.url.endsWith('/NCT002'))
+      // Handle the initial random trial request
+      const initialTrialReq = httpMock.expectOne(request => 
+        request.url === `${service['apiUrl']}/NCT001`
       );
-
-      // Mock response data structure matching the API
-      const mockTrialResponse = {
-        studies: [{
-          protocolSection: {
-            identificationModule: {
-              nctId: trialReq.request.url.endsWith('/NCT001') ? 'NCT001' : 'NCT002',
-              briefTitle: 'Test Trial',
-              organization: { fullName: 'Test Org' }
-            },
-            statusModule: {
-              statusVerifiedDate: '2023-01-01',
-              overallStatus: 'Active'
-            },
-            descriptionModule: {
-              briefSummary: 'Test summary'
-            }
-          }
-        }]
-      };
-
-      trialReq.flush(mockTrialResponse);
-      tick();
+      initialTrialReq.flush(mockApiResponse.studies[0]);
 
       // Now disable the timer
-      await service.toggleTimer(false);
+      service.toggleTimer(false);
       tick();
 
       // Verify no more requests are pending
       httpMock.verify();
 
-      // Clean up any remaining async tasks
-      discardPeriodicTasks();
+      // Advance time to ensure no more requests are made
+      tick(service['fetchInterval'] * 2);
+      
+      // Should not have any pending requests
+      httpMock.verify();
     }));
 
     it('should fetch trial IDs and start timer when enabled', fakeAsync(async () => {

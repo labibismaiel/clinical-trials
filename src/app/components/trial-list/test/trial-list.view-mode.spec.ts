@@ -61,27 +61,27 @@ describe('TrialListComponent View Mode', () => {
   });
 
   it('should default to card view mode', () => {
-    expect(component.viewMode).toBe('card');
+    expect(component.viewMode()).toBe('card');
   });
 
   it('should toggle between card and list view modes', () => {
     // Start in card mode
-    expect(component.viewMode).toBe('card');
+    expect(component.viewMode()).toBe('card');
 
     // Switch to list mode
-    component.viewMode = 'list';
+    component.viewMode.set('list');
     fixture.detectChanges();
-    expect(component.viewMode).toBe('list');
+    expect(component.viewMode()).toBe('list');
 
     // Switch back to card mode
-    component.viewMode = 'card';
+    component.viewMode.set('card');
     fixture.detectChanges();
-    expect(component.viewMode).toBe('card');
+    expect(component.viewMode()).toBe('card');
   });
 
   it('should preserve view mode when trials are updated', () => {
     // Set list mode
-    component.viewMode = 'list';
+    component.viewMode.set('list');
     fixture.detectChanges();
 
     // Update trials
@@ -90,6 +90,6 @@ describe('TrialListComponent View Mode', () => {
     fixture.detectChanges();
 
     // View mode should still be list
-    expect(component.viewMode).toBe('list');
+    expect(component.viewMode()).toBe('list');
   });
 });

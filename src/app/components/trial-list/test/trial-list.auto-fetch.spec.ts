@@ -62,27 +62,35 @@ describe('TrialListComponent Auto-Fetch', () => {
   });
 
   it('should enable auto-fetch when toggle is checked', fakeAsync(async () => {
-    await component.toggleAutoFetch({ checked: true });
+    const mockToggleEvent = {
+      checked: true,
+      source: {} as any
+    };
+    await component.toggleAutoFetch(mockToggleEvent);
     tick();
 
     expect(clinicalTrialsService.toggleTimer).toHaveBeenCalledWith(true);
-    expect(component.autoFetch).toBe(true);
+    expect(component.autoFetch()).toBe(true);
 
     discardPeriodicTasks();
   }));
 
   it('should disable auto-fetch when toggle is unchecked', fakeAsync(async () => {
-    component.autoFetch = true;
-    await component.toggleAutoFetch({ checked: false });
+    component.autoFetch.set(true);
+    const mockToggleEvent = {
+      checked: false,
+      source: {} as any
+    };
+    await component.toggleAutoFetch(mockToggleEvent);
     tick();
 
     expect(clinicalTrialsService.toggleTimer).toHaveBeenCalledWith(false);
-    expect(component.autoFetch).toBe(false);
+    expect(component.autoFetch()).toBe(false);
   }));
 
 
   it('should cleanup timer subscription on destroy', fakeAsync(async () => {
-    component.autoFetch = true;
+    component.autoFetch.set(true);
     await component.ngOnDestroy();
     tick();
 

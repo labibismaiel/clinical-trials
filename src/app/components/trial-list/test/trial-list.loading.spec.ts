@@ -66,8 +66,8 @@ describe('TrialListComponent Loading', () => {
     fixture.detectChanges();
 
     expect(component.trials()).toEqual([mockTrial]);
-    expect(component.loading).toBeFalse();
-    expect(component.error).toBeFalse();
+    expect(component.loading()).toBeFalse();
+    expect(component.error()).toBeFalse();
   });
 
   it('should fetch initial trials on init', () => {
@@ -79,13 +79,13 @@ describe('TrialListComponent Loading', () => {
     tick();
     fixture.detectChanges();
 
-    expect(component.loading).toBeTrue();
+    expect(component.loading()).toBeTrue();
 
     loadingSubject.next(false);
     tick();
     fixture.detectChanges();
 
-    expect(component.loading).toBeFalse();
+    expect(component.loading()).toBeFalse();
   }));
 
   it('should update trials from service', fakeAsync(() => {

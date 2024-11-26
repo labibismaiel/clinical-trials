@@ -58,9 +58,9 @@ describe('TrialListComponent Navigation', () => {
 
     fixture = TestBed.createComponent(TrialListComponent);
     component = fixture.componentInstance;
-    component.viewMode = 'card';
-    component.loading = false;
-    component.error = false;
+    component.viewMode.set('card');
+    component.loading.set(false);
+    component.error.set(false);
 
     trialsSubject.next([mockTrial]);
     loadingSubject.next(false);

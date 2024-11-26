@@ -46,8 +46,13 @@ export class ClinicalTrialsService {
   }
 
   getTrialById(id: string): Observable<ClinicalTrial> {
-    return this.http.get<ClinicalTrialsApiResponse>(`${this.apiUrl}/${id}`).pipe(
-      map(response => this.mapApiResponseToTrial(response.studies[0])),
+    return this.http.get<ClinicalTrial>(`${this.apiUrl}/${id}`).pipe(
+      map(response => {
+        if (!response) {
+          throw new Error('No response received from the API');
+        }
+        return this.mapApiResponseToTrial(response);
+      }),
       catchError(this.handleError)
     );
   }
@@ -163,23 +168,20 @@ export class ClinicalTrialsService {
       .subscribe({
         next: (response) => {
           try {
-            const newTrial = this.mapApiResponseToTrial(response.studies[0]);
-            const currentTrials = [...this.trials.value];
+            const newTrial = this.mapApiResponseToTrial(response);
+            const currentTrials = this.trials.value;
+            let updatedTrials: ClinicalTrial[];
 
             if (currentTrials.length >= this.maxTrials) {
-              const removedTrial = currentTrials[0];
-              if (removedTrial.isFavorite) {
-                this.favoritesService.removeFromFavorites(removedTrial.nctId);
-              }
-
-              const updatedTrials = [...currentTrials.slice(1), newTrial];
-              this.saveTrialsToStorage(updatedTrials);
-              this.trials.next(updatedTrials);
+              // Remove first trial and add new one at the end
+              updatedTrials = [...currentTrials.slice(1), newTrial];
             } else {
-              const updatedTrials = [...currentTrials, newTrial];
-              this.saveTrialsToStorage(updatedTrials);
-              this.trials.next(updatedTrials);
+              // Just add the new trial at the end
+              updatedTrials = [...currentTrials, newTrial];
             }
+
+            this.trials.next(updatedTrials);
+            this.saveTrialsToStorage(updatedTrials);
           } catch (error) {
             console.error('Error processing trial:', error);
           }
@@ -191,9 +193,10 @@ export class ClinicalTrialsService {
       });
   }
 
-  fetchInitialTrials(): void {
+  fetchInitialTrials(): Observable<ClinicalTrial[]> {
     this.isLoading.next(true);
-    this.http.get<ClinicalTrialsApiResponse>(this.apiUrl, { params: new HttpParams().set('format', 'json').set('pageSize', String(this.maxTrials)) })
+    return this.http.get<ClinicalTrialsApiResponse>(this.apiUrl,
+      { params: new HttpParams().set('format', 'json').set('pageSize', String(this.maxTrials)) })
       .pipe(
         retry(3),
         catchError((error) => {
@@ -204,21 +207,22 @@ export class ClinicalTrialsService {
         }),
         finalize(() => {
           this.isLoading.next(false);
-        })
-      )
-      .subscribe({
-        next: (response) => {
+        }),
+        map(response => {
           if (response?.studies && response.studies.length > 0) {
-            const trial = this.mapApiResponseToTrial(response.studies[0]);
-            this.trials.next([trial]);
-            this.saveTrialsToStorage([trial]);
+            const trials = response.studies
+              .slice(0, this.maxTrials)
+              .map(study => this.mapApiResponseToTrial(study));
+            this.trials.next(trials);
+            this.saveTrialsToStorage(trials);
+            return trials;
           } else {
             console.error('No studies found in the API response');
             this.trials.next([]);
+            return [];
           }
-        },
-        error: () => {} // Error already handled in catchError
-      });
+        })
+      );
   }
 
   async toggleTimer(enabled: boolean): Promise<void> {
@@ -248,7 +252,10 @@ export class ClinicalTrialsService {
           this.trialIds = response.studies.map(study =>
             study.protocolSection.identificationModule.nctId
           );
-          this.timerSubscription = interval(30000)
+          // Fetch initial random trial immediately
+          this.fetchRandomTrials();
+          // Then set up the interval for subsequent fetches
+          this.timerSubscription = interval(this.fetchInterval)
             .pipe(
               tap(() => this.fetchRandomTrials())
             )

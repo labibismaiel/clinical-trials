@@ -59,8 +59,8 @@ describe('TrialListComponent Initialization', () => {
   beforeEach(() => {
     fixture = TestBed.createComponent(TrialListComponent);
     component = fixture.componentInstance;
-    component.loading = false;
-    component.error = false;
+    component.loading.set(false);
+    component.error.set(false);
     fixture.detectChanges();
   });
 
@@ -91,6 +91,6 @@ describe('TrialListComponent Initialization', () => {
 
   it('should subscribe to loading state', () => {
     loadingSubject.next(true);
-    expect(component.loading).toBeTrue();
+    expect(component.loading()).toBeTrue();
   });
 });

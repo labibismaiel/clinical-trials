@@ -2,9 +2,9 @@
   <div class="controls">
     <div class="auto-fetch-toggle">
       <mat-slide-toggle
-        [checked]="autoFetch"
+        [checked]="autoFetch()"
         (change)="toggleAutoFetch($event)"
-        [disabled]="error"
+        [disabled]="error()"
         color="primary">
         Auto-Fetch
       </mat-slide-toggle>
@@ -24,13 +24,13 @@
   </div>
 
   <!-- Loading State -->
-  <div class="loading-container" *ngIf="loading">
+  <div class="loading-container" *ngIf="loading()">
     <mat-spinner diameter="40"></mat-spinner>
     <p class="loading-text">Loading clinical trials...</p>
   </div>
 
   <!-- Error State -->
-  <div class="error-container" *ngIf="error">
+  <div class="error-container" *ngIf="error()">
     <mat-icon class="error-icon">error_outline</mat-icon>
     <p class="error-message">Error loading trials. Please try again later.</p>
     <button mat-raised-button color="primary" (click)="fetchTrials()">
@@ -40,7 +40,7 @@
   </div>
 
   <!-- Content -->
-  <ng-container *ngIf="!loading && !error">
+  <ng-container *ngIf="!loading() && !error()">
     <!-- Empty State -->
     <div class="empty-state" *ngIf="trials().length === 0">
       <mat-icon>search_off</mat-icon>
@@ -52,27 +52,29 @@
     </div>
 
     <!-- Card View -->
-    <div class="trials-grid" *ngIf="trials().length > 0 && viewMode === 'card'">
-      <app-trial-card
-        *ngFor="let trial of trials(); trackBy: trackByTrialId"
-        [trial]="trial"
-        [viewMode]="'card'"
-        [maxFavoritesReached]="maxFavoritesReached"
-        (favoriteToggled)="toggleFavorite(trial)"
-        (trialClicked)="viewTrialDetails(trial)">
-      </app-trial-card>
+    <div class="trials-grid" *ngIf="trials().length > 0 && viewMode() === 'card'">
+      @for (trial of trials(); track trial.nctId) {
+        <app-trial-card
+          [trial]="trial"
+          [viewMode]="'card'"
+          [maxFavoritesReached]="maxFavoritesReached()"
+          (favoriteToggled)="toggleFavorite(trial)"
+          (trialClicked)="viewTrialDetails(trial)">
+        </app-trial-card>
+      }
     </div>
 
     <!-- List View -->
-    <div class="trials-list" *ngIf="trials().length > 0 && viewMode === 'list'">
-      <app-trial-card
-        *ngFor="let trial of trials(); trackBy: trackByTrialId"
-        [trial]="trial"
-        [viewMode]="'list'"
-        [maxFavoritesReached]="maxFavoritesReached"
-        (favoriteToggled)="toggleFavorite(trial)"
-        (trialClicked)="viewTrialDetails(trial)">
-      </app-trial-card>
+    <div class="trials-list" *ngIf="trials().length > 0 && viewMode() === 'list'">
+      @for (trial of trials(); track trial.nctId) {
+        <app-trial-card
+          [trial]="trial"
+          [viewMode]="'list'"
+          [maxFavoritesReached]="maxFavoritesReached()"
+          (favoriteToggled)="toggleFavorite(trial)"
+          (trialClicked)="viewTrialDetails(trial)">
+        </app-trial-card>
+      }
     </div>
   </ng-container>
 </div>

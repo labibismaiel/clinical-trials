@@ -78,4 +78,8 @@ export class FavoritesService {
       throw new Error('Failed to clear favorites');
     }
   }
+
+  isMaxFavoritesReached(): boolean {
+    return this.favoritesSubject.value.length >= this.MAX_FAVORITES;
+  }
 }
