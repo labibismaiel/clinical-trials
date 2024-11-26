@@ -96,6 +96,17 @@
             ],
             "scripts": []
           }
+        },
+        "e2e": {
+          "builder": "playwright-ng-schematics:playwright",
+          "options": {
+            "devServerTarget": "clinical-trials-explorer:serve"
+          },
+          "configurations": {
+            "production": {
+              "devServerTarget": "clinical-trials-explorer:serve:production"
+            }
+          }
         }
       }
     }
