@@ -15,6 +15,7 @@ import { FormsModule } from '@angular/forms';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { TrialCardComponent } from '../../shared/trial-card/trial-card.component';
 import { HttpClientTestingModule } from '@angular/common/http/testing';
+import { FavoritesService } from '../../../services/favorites.service';
 
 describe('TrialListComponent Navigation', () => {
   let component: TrialListComponent;
@@ -34,6 +35,17 @@ describe('TrialListComponent Navigation', () => {
       toggleFavorite: Promise.resolve()
     });
 
+    const favoritesSpy = jasmine.createSpyObj('FavoritesService', [
+      'getFavorites',
+      'isMaxFavoritesReached',
+      'addToFavorites',
+      'removeFromFavorites'
+    ], {
+      favorites$: favoritesSubject.asObservable()
+    });
+
+    favoritesSpy.isMaxFavoritesReached.and.returnValue(false);
+
     await TestBed.configureTestingModule({
       imports: [
         HttpClientTestingModule,
@@ -52,6 +64,7 @@ describe('TrialListComponent Navigation', () => {
       providers: [
         { provide: Router, useValue: router },
         { provide: ClinicalTrialsService, useValue: clinicalTrialsService },
+        { provide: FavoritesService, useValue: favoritesSpy },
         { provide: MatSnackBar, useValue: jasmine.createSpyObj('MatSnackBar', ['open']) }
       ]
     }).compileComponents();

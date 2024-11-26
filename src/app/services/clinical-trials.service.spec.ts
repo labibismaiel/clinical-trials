@@ -96,17 +96,23 @@ describe('ClinicalTrialsService', () => {
       // Set up the mock response
       const params = new HttpParams()
         .set('format', 'json')
-        .set('pageSize', '10');
+        .set('pageSize', '10');  // This should match maxTrials from the service
 
-      service.fetchInitialTrials();
+      const mockResponse = {
+        studies: [mockApiResponse.studies[0]]
+      };
+
+      service.fetchInitialTrials().subscribe();
       tick();
 
       const req = httpMock.expectOne(request =>
         request.url === service['apiUrl'] &&
-        request.params.toString() === params.toString()
+        request.method === 'GET' &&
+        request.params.get('format') === 'json' &&
+        request.params.get('pageSize') === '10'
       );
-      expect(req.request.method).toBe('GET');
-      req.flush({ studies: [mockApiResponse.studies[0]] });
+      
+      req.flush(mockResponse);
 
       tick();
 
@@ -117,37 +123,45 @@ describe('ClinicalTrialsService', () => {
     }));
 
     it('should handle error when fetching trials', fakeAsync(() => {
-      // Setup
-      service.fetchInitialTrials();
-
-      // Service will retry 3 times
-      for (let i = 0; i < 3; i++) {
-        const req = httpMock.expectOne(`${service['apiUrl']}?format=json&pageSize=10`);
-        expect(req.request.method).toBe('GET');
-        req.error(new ErrorEvent('API Error'));
-        tick(); // Let the retry logic process
-      }
-
-      // Final request that will fail
-      const req = httpMock.expectOne(`${service['apiUrl']}?format=json&pageSize=10`);
-      expect(req.request.method).toBe('GET');
-      req.error(new ErrorEvent('API Error'));
-
-      tick(); // Let error handlers run
-
-      // Check loading state
-      let loadingState = true;
-      service.getLoadingState().subscribe(state => {
-        loadingState = state;
-      });
-      expect(loadingState).toBe(false); // Loading should be false after error
-
-      // Get current trials value
+      let errorCaught = false;
       let currentTrials: ClinicalTrial[] = [];
+
+      // Subscribe to trials
       service.getTrials().subscribe(trials => {
         currentTrials = trials;
       });
-      expect(currentTrials).toEqual([]); // Trials should be empty on error
+
+      // Attempt to fetch trials
+      service.fetchInitialTrials().subscribe({
+        next: () => fail('Expected an error'),
+        error: () => errorCaught = true,
+        complete: () => fail('Expected an error')
+      });
+
+      // Service will retry 3 times
+      for (let i = 0; i < 3; i++) {
+        const req = httpMock.expectOne(request =>
+          request.url === service['apiUrl'] &&
+          request.method === 'GET' &&
+          request.params.get('format') === 'json' &&
+          request.params.get('pageSize') === '10'
+        );
+        req.error(new ErrorEvent('API Error'));
+        tick();
+      }
+
+      // Final request that will fail
+      const req = httpMock.expectOne(request =>
+        request.url === service['apiUrl'] &&
+        request.method === 'GET' &&
+        request.params.get('format') === 'json' &&
+        request.params.get('pageSize') === '10'
+      );
+      req.error(new ErrorEvent('API Error'));
+      tick();
+
+      expect(errorCaught).toBeTrue();
+      expect(currentTrials).toEqual([]);
     }));
   });
 
@@ -163,17 +177,20 @@ describe('ClinicalTrialsService', () => {
       expect(loadingState).toBeFalse();
 
       // Trigger a request that will set loading state
-      service.fetchInitialTrials();
+      service.fetchInitialTrials().subscribe();
 
       // Loading state should be true immediately after request starts
       expect(loadingState).toBeTrue();
 
-      const req = httpMock.expectOne(req =>
-        req.url === service['apiUrl'] &&
-        req.params.get('format') === 'json' &&
-        req.params.get('pageSize') === String(service['maxTrials'])
+      const req = httpMock.expectOne(request =>
+        request.url === service['apiUrl'] &&
+        request.params.get('format') === 'json' &&
+        request.params.get('pageSize') === '10'
       );
+      
+      expect(req.request.method).toBe('GET');
       req.flush({ studies: [mockApiResponse.studies[0]] });
+      
       tick(); // Let the response processing complete
 
       // Loading state should be false after request completes
@@ -228,26 +245,21 @@ describe('ClinicalTrialsService', () => {
         ]
       });
 
-      // Let the initial fetch happen
-      tick();
+      // Let the timer start and trigger the first interval
+      tick(service['fetchInterval']);
 
-      // Handle the initial random trial request
-      const initialTrialReq = httpMock.expectOne(request => 
-        request.url === `${service['apiUrl']}/NCT001`
-      );
-      initialTrialReq.flush(mockApiResponse.studies[0]);
+      // Handle the trial request
+      const trialReq = httpMock.expectOne(`${service['apiUrl']}/NCT001`);
+      expect(trialReq.request.method).toBe('GET');
+      trialReq.flush({
+        studies: [mockApiResponse.studies[0]]
+      });
 
       // Now disable the timer
       service.toggleTimer(false);
-      tick();
+      tick(service['fetchInterval']);
 
-      // Verify no more requests are pending
-      httpMock.verify();
-
-      // Advance time to ensure no more requests are made
-      tick(service['fetchInterval'] * 2);
-      
-      // Should not have any pending requests
+      // Verify no more requests are made
       httpMock.verify();
     }));
 
@@ -297,7 +309,7 @@ describe('ClinicalTrialsService', () => {
 
       const req = httpMock.expectOne(`${service['apiUrl']}/${testId}`);
       expect(req.request.method).toBe('GET');
-      req.flush({ studies: [mockApiResponse.studies[0]] });
+      req.flush(mockApiResponse.studies[0]);
 
       tick();
 

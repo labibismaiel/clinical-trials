@@ -32,9 +32,16 @@ describe('TrialListComponent Auto-Fetch', () => {
     serviceSpy.getLoadingState.and.returnValue(loadingSubject.asObservable());
     serviceSpy.toggleTimer.and.returnValue(Promise.resolve());
 
-    const favoritesSpy = jasmine.createSpyObj('FavoritesService', ['getFavorites'], {
+    const favoritesSpy = jasmine.createSpyObj('FavoritesService', [
+      'getFavorites',
+      'isMaxFavoritesReached',
+      'addToFavorites',
+      'removeFromFavorites'
+    ], {
       favorites$: favoritesSubject.asObservable()
     });
+
+    favoritesSpy.isMaxFavoritesReached.and.returnValue(false);
 
     const snackBarSpy = jasmine.createSpyObj('MatSnackBar', ['open']);
 
@@ -91,9 +98,10 @@ describe('TrialListComponent Auto-Fetch', () => {
 
   it('should cleanup timer subscription on destroy', fakeAsync(async () => {
     component.autoFetch.set(true);
-    await component.ngOnDestroy();
+    component.ngOnDestroy();
     tick();
 
     expect(clinicalTrialsService.toggleTimer).toHaveBeenCalledWith(false);
+    expect(component.autoFetch()).toBe(true);
   }));
 });

@@ -33,9 +33,18 @@ describe('TrialListComponent Favorites', () => {
       toggleFavorite: Promise.resolve()
     });
 
-    favoritesService = jasmine.createSpyObj('FavoritesService', ['getFavorites'], {
+    favoritesService = jasmine.createSpyObj('FavoritesService', [
+      'getFavorites',
+      'isMaxFavoritesReached',
+      'addToFavorites',
+      'removeFromFavorites'
+    ], {
       favorites$: favoritesSubject.asObservable()
     });
+
+    favoritesService.isMaxFavoritesReached.and.returnValue(false);
+    favoritesService.addToFavorites.and.returnValue(undefined);
+    favoritesService.removeFromFavorites.and.returnValue(undefined);
 
     snackBar = jasmine.createSpyObj('MatSnackBar', ['open']);
 

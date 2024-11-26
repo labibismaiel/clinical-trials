@@ -37,9 +37,11 @@ describe('TrialListComponent', () => {
       ['getTrials', 'getLoadingState', 'fetchInitialTrials', 'toggleTimer', 'toggleFavorite'],
       { loading: false }
     );
-    const favoritesServiceSpy = jasmine.createSpyObj('FavoritesService', ['getFavorites'], {
-      favorites$: of([])
-    });
+    const favoritesServiceSpy = jasmine.createSpyObj('FavoritesService', 
+      ['getFavorites', 'isMaxFavoritesReached', 'addToFavorites', 'removeFromFavorites'],
+      { favorites$: of([]) }
+    );
+    favoritesServiceSpy.isMaxFavoritesReached.and.returnValue(false);
     const snackBarSpy = jasmine.createSpyObj('MatSnackBar', ['open']);
 
     await TestBed.configureTestingModule({

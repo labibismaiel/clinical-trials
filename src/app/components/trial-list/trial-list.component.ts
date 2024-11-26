@@ -89,7 +89,10 @@ export class TrialListComponent implements OnInit, OnDestroy {
     );
   }
 
-  ngOnDestroy(): void {
+  async ngOnDestroy(): Promise<void> {
+    if (this.autoFetch()) {
+      await this.clinicalTrialsService.toggleTimer(false);
+    }
     this.subscriptions.forEach(sub => sub.unsubscribe());
   }
 
@@ -134,6 +137,11 @@ export class TrialListComponent implements OnInit, OnDestroy {
 
     this.clinicalTrialsService.toggleFavorite(trial).subscribe({
       next: (updatedTrial) => {
+        const currentTrials = this.trials();
+        const updatedTrials = currentTrials.map(t =>
+          t.nctId === updatedTrial.nctId ? updatedTrial : t
+        );
+        this.trials.set(updatedTrials);
         this.updateMaxFavoritesReached();
       },
       error: (error) => {

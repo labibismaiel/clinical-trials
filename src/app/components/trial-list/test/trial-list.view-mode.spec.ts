@@ -30,9 +30,16 @@ describe('TrialListComponent View Mode', () => {
     serviceSpy.getTrials.and.returnValue(trialsSubject.asObservable());
     serviceSpy.getLoadingState.and.returnValue(loadingSubject.asObservable());
 
-    const favoritesSpy = jasmine.createSpyObj('FavoritesService', ['getFavorites'], {
+    const favoritesSpy = jasmine.createSpyObj('FavoritesService', [
+      'getFavorites',
+      'isMaxFavoritesReached',
+      'addToFavorites',
+      'removeFromFavorites'
+    ], {
       favorites$: favoritesSubject.asObservable()
     });
+
+    favoritesSpy.isMaxFavoritesReached.and.returnValue(false);
 
     const snackBarSpy = jasmine.createSpyObj('MatSnackBar', ['open']);
 

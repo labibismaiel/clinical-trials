@@ -46,10 +46,10 @@ export class ClinicalTrialsService {
   }
 
   getTrialById(id: string): Observable<ClinicalTrial> {
-    return this.http.get<ClinicalTrial>(`${this.apiUrl}/${id}`).pipe(
+    return this.http.get<ClinicalTrialsApiResponse>(`${this.apiUrl}/${id}`).pipe(
       map(response => {
         if (!response) {
-          throw new Error('No response received from the API');
+          throw new Error('No trial found with the specified ID');
         }
         return this.mapApiResponseToTrial(response);
       }),
